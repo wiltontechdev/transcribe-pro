@@ -186,12 +186,11 @@ export class HowlerAudioEngine {
       const originalBlob = new Blob([new Uint8Array(this.originalDataArray)], { type: 'audio/mpeg' });
       this.originalBlobUrl = URL.createObjectURL(originalBlob);
 
-      // Load Howler first - main UI appears as soon as Howler is ready (setAudioReadyForPlayback in onload).
-      // Waveform decodes in background; setAudioBuffer() updates waveform when done.
+      // Load Howler first
       await this.loadHowlerFromUrl(this.originalBlobUrl);
 
-      // Decode waveform in background; when finished, setAudioBuffer() updates the waveform.
-      this.decodeWaveformInBackground(file.name, this.duration);
+      // Wait for waveform decode before showing UI - match web (everything ready before main window)
+      await this.decodeWaveformAndSetBuffer(file.name, this.duration);
 
       // Electron: save temp file in background for pitch/speed processing (don't block load)
       if (isElectron && window.electronAPI?.saveTempAudio) {
@@ -270,13 +269,12 @@ export class HowlerAudioEngine {
           }
           
           // Update store only on initial load (not on pitch switch)
+          // Do NOT call setAudioReadyForPlayback - we wait for waveform before showing UI
           if (!preserveState) {
             const DEFAULT_ZOOM = 5; // Show 20% (1/5) of audio initially
             useAppStore.getState().setDuration(this.duration);
             useAppStore.getState().setViewport(0, this.duration / DEFAULT_ZOOM);
             useAppStore.getState().setZoomLevel(DEFAULT_ZOOM);
-            // Show main UI + enable play immediately; waveform decodes in background
-            useAppStore.getState().setAudioReadyForPlayback();
             
             // Initialize speed from store
             const storedSpeed = useAppStore.getState().globalControls.playbackRate;
@@ -592,10 +590,12 @@ export class HowlerAudioEngine {
 
   public async play(): Promise<void> {
     if (!this.howl) throw new Error('No audio');
-    
+    // User gesture must not be lost: play() before any await (PlaybackPanel depends on this)
     const targetVol = this.getTargetVolumeLinear();
     this.howl.volume(0);
     this.currentSoundId = this.howl.play() as number;
+    // Match web: resume context (web does Tone.context.resume before play; Howler creates ctx on first play)
+    await this.resumeAudioContext();
     
     if (PITCH_ENABLED_IN_HOWLER && this.tonePitchShift) {
       this.applyPitchToTone();
@@ -953,7 +953,18 @@ export class HowlerAudioEngine {
     return this.getSpeed();
   }
 
-  public async resumeAudioContext(): Promise<void> {}
+  /**
+   * Resume Howler's AudioContext - matches web (Tone.context.resume before play).
+   * Required for first play in Electron; context starts suspended until user gesture.
+   */
+  public async resumeAudioContext(): Promise<void> {
+    try {
+      const Howler = (window as any).Howler;
+      const ctx = Howler?.ctx as AudioContext | undefined;
+      if (ctx?.state === 'suspended') await ctx.resume();
+      if (Tone.context.state === 'suspended') await Tone.context.resume();
+    } catch (_) {}
+  }
 
   /**
    * Enable looping between start and end times
@@ -1079,28 +1090,33 @@ export class HowlerAudioEngine {
 
   // === Waveform ===
 
-  /** Decode waveform off the main path so UI stays responsive after load. Long files use lower sample rate to avoid OOM. */
-  private decodeWaveformInBackground(filename: string, durationSeconds: number): void {
-    const data = this.originalDataArray;
-    if (!data?.length) return;
-    (async () => {
-      try {
+  /** Decode waveform and set store - blocks until done. Match web: everything ready before showing UI. */
+  private async decodeWaveformAndSetBuffer(filename: string, durationSeconds: number): Promise<void> {
+    if (!this.howl) return;
+    const DEFAULT_ZOOM = 5;
+    const store = useAppStore.getState();
+    try {
+      if (this.originalDataArray?.length) {
         await ensureFFmpegLoaded();
-        const waveformBuffer = new Uint8Array(data).buffer;
+        const waveformBuffer = new Uint8Array(this.originalDataArray).buffer;
         const buffer = await this.decodeWaveform(waveformBuffer, filename, durationSeconds);
-        if (buffer && this.howl) {
-          this.audioBuffer = buffer;
-          useAppStore.getState().setAudioBuffer(buffer);
-        }
-      } catch {
-        // Non-fatal: waveform will be missing – but clear loading so the UI isn't stuck
-        try {
-          useAppStore.getState().setIsLoading(false);
-        } catch {
-          // ignore
-        }
+        if (buffer) this.audioBuffer = buffer;
       }
-    })();
+      // Match web: set buffer + duration + viewport + zoom in one block
+      store.setDuration(this.duration);
+      store.setViewport(0, this.duration / DEFAULT_ZOOM);
+      store.setZoomLevel(DEFAULT_ZOOM);
+      store.setAudioBuffer(this.audioBuffer ?? null);
+      if (!this.audioBuffer) store.setAudioReadyForPlayback();
+      // Prime AudioContext for first play (user gesture from file picker still valid)
+      await this.resumeAudioContext();
+    } catch {
+      // Fallback: show UI with no waveform; user can still play
+      store.setDuration(this.duration);
+      store.setViewport(0, this.duration / DEFAULT_ZOOM);
+      store.setZoomLevel(DEFAULT_ZOOM);
+      store.setAudioReadyForPlayback();
+    }
   }
 
   private async decodeWaveform(arrayBuffer: ArrayBuffer, filename: string, durationSeconds: number = 0): Promise<AudioBuffer | null> {

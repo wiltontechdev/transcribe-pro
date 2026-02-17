@@ -11,6 +11,10 @@
     "build": "npm run build:electron && vite build",
     "build:electron": "tsc -p tsconfig.main.json",
     "build:web": "vite build",
+    "build:android": "npm run build && npx cap sync android",
+    "cap:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:apk": "npm run build:android && cd android && .\\gradlew.bat assembleDebug",
     "preview": "vite preview",
     "clean": "powershell -ExecutionPolicy Bypass -File ./clean-release.ps1 || rimraf release",
     "dist": "npm run clean && npm run build && electron-builder",
@@ -123,6 +127,7 @@
     "wait-on": "^7.2.0"
   },
   "dependencies": {
+    "@capacitor/android": "^8.1.0",
     "@capacitor/cli": "^8.0.1",
     "@capacitor/core": "^8.0.1",
     "@ffmpeg/ffmpeg": "^0.12.10",

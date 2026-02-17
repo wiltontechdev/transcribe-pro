@@ -76,14 +76,16 @@ const Waveform: React.FC = () => {
   // to ensure fresh values during animation frames
   
   // Reset animated viewport when new audio is loaded
+  // Store sets buffer+viewport+zoom together (web and Electron); use store viewport
   useEffect(() => {
     if (audioBuffer && duration > 0) {
-      // Reset animation state for new audio - immediate, no animation
-      animatedViewportRef.current = { start: 0, end: duration, initialized: true };
-      targetViewportRef.current = { start: 0, end: duration };
+      const end = viewportEnd > 0 && viewportEnd <= duration ? viewportEnd : duration / 5;
+      const start = viewportStart >= 0 && viewportStart < end ? viewportStart : 0;
+      animatedViewportRef.current = { start, end, initialized: true };
+      targetViewportRef.current = { start, end };
       setAnimationTick(n => n + 1);
     }
-  }, [audioBuffer]); // Only when buffer changes (new audio loaded)
+  }, [audioBuffer, duration, viewportStart, viewportEnd]);
   
   // Update viewport when duration changes (e.g., speed change)
   // This ensures waveform and timer stay in sync when speed changes

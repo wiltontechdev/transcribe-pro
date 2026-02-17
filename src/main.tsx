@@ -4,44 +4,34 @@ import App from './renderer/App'
 import './renderer/styles/globals.css'
 import './index.css'
 
-// Global error handlers to catch unhandled errors
+// Global error handlers - use overlay div to avoid destroying React's DOM (which causes removeChild errors)
+function showErrorOverlay(title: string, message: string, stack?: string) {
+  if (document.getElementById('error-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'error-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:999999;padding:2rem;color:#ff4444;background:#1a1a1a;font-family:monospace;overflow:auto;';
+  overlay.innerHTML = `
+    <h2>🚨 ${title}</h2>
+    <p><strong>Message:</strong> ${message}</p>
+    ${stack ? `<pre style="background:#0a0a0a;padding:1rem;overflow:auto;max-height:300px;">${stack}</pre>` : ''}
+    <button onclick="window.location.reload()" style="margin-top:1rem;padding:0.5rem 1rem;cursor:pointer;">Reload App</button>
+  `;
+  document.body.appendChild(overlay);
+}
+
 window.addEventListener('error', (event) => {
-  // Show error in UI
-  const root = document.getElementById('root');
-  if (root) {
-    root.innerHTML = `
-      <div style="padding: 2rem; color: #ff4444; background: #1a1a1a; font-family: monospace;">
-        <h2>🚨 Application Error</h2>
-        <p><strong>Message:</strong> ${event.message}</p>
-        <p><strong>File:</strong> ${event.filename}</p>
-        <p><strong>Line:</strong> ${event.lineno}</p>
-        <pre style="background: #0a0a0a; padding: 1rem; overflow: auto; max-height: 300px;">
-${event.error?.stack || 'No stack trace'}
-        </pre>
-        <button onclick="window.location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer;">
-          Reload App
-        </button>
-      </div>
-    `;
-  }
+  showErrorOverlay(
+    'Application Error',
+    event.message,
+    event.error?.stack || event.filename ? `at ${event.filename}:${event.lineno}` : undefined
+  );
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  // Show error in UI
-  const root = document.getElementById('root');
-  if (root && event.reason) {
-    root.innerHTML = `
-      <div style="padding: 2rem; color: #ff4444; background: #1a1a1a; font-family: monospace;">
-        <h2>🚨 Unhandled Promise Rejection</h2>
-        <p><strong>Reason:</strong> ${event.reason?.message || event.reason}</p>
-        <pre style="background: #0a0a0a; padding: 1rem; overflow: auto; max-height: 300px;">
-${event.reason?.stack || 'No stack trace'}
-        </pre>
-        <button onclick="window.location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer;">
-          Reload App
-        </button>
-      </div>
-    `;
+  if (event.reason) {
+    const msg = event.reason?.message || String(event.reason);
+    const stack = event.reason?.stack;
+    showErrorOverlay('Unhandled Promise Rejection', msg, stack);
   }
 });
 

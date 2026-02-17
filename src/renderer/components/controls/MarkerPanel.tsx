@@ -3,6 +3,7 @@
 
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../store/store';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { MarkerManager, PRESET_COLORS } from '../markers/MarkerManager';
 import { Marker } from '../../types/types';
 import { useAudioEngine } from '../audio/useAudioEngine';
@@ -54,13 +55,7 @@ const MarkerPanel: React.FC = () => {
   const isLightMode = theme === 'light';
   const audioDuration = useAppStore((state) => state.audio.duration || 0);
   
-  // Mobile/tablet detection - matches App.tsx (≤1024 = mobile layout)
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const isMobile = useIsMobile();
 
   // TASK 13: Get AudioEngine methods for applying marker settings
   const { setSpeed, seek, setLoop, disableLoop } = useAudioEngine();

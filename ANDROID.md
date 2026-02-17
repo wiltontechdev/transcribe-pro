@@ -1,6 +1,6 @@
-# Converting Transcription Pro to Android
+# Android Build Guide - Transcription Pro
 
-This app can be converted to an Android app with **minimal code changes** using [Capacitor](https://capacitorjs.com/). Capacitor wraps your existing web app in a native WebView, so most of the codebase works as-is.
+The app runs on Android with **minimal code changes** using [Capacitor](https://capacitorjs.com/). Same codebase as web and Electron.
 
 ## Prerequisites
 
@@ -8,51 +8,41 @@ This app can be converted to an Android app with **minimal code changes** using 
 - Android Studio (for Android SDK and emulator)
 - Java 17 (required by Android)
 
+### SDK location
+
+If the build fails with "SDK location not found", create `android/local.properties`:
+
+```properties
+sdk.dir=C:\\Users\\YOUR_USERNAME\\AppData\\Local\\Android\\Sdk
+```
+
+Or set the `ANDROID_HOME` environment variable to your SDK path.
+
 ## Quick Start
 
-### 1. Add Android platform
+### 1. Build and sync
 
 ```bash
-npm install @capacitor/android
-npx cap add android
+npm run build:android
+# or: npm run build && npx cap sync android
 ```
 
-### 2. Configure Capacitor
-
-Edit `capacitor.config.ts`:
-
-```ts
-import type { CapacitorConfig } from '@capacitor/cli';
-
-const config: CapacitorConfig = {
-  appId: 'com.transcribepro.app',  // Match your app ID
-  appName: 'Transcription Pro',
-  webDir: 'dist',
-  server: {
-    // For local dev: androidScheme: 'https'
-  },
-};
-
-export default config;
-```
-
-### 3. Build and sync
+### 2. Open in Android Studio
 
 ```bash
-# Build the web app (Vite outputs to dist/)
-npm run build
-
-# Sync web assets to native projects
-npx cap sync android
+npm run android:open
+# or: npx cap open android
 ```
 
-### 4. Open in Android Studio
+Then run the app on an emulator or device from Android Studio (▶ Run).
+
+### 3. After code changes
 
 ```bash
-npx cap open android
+npm run cap:sync
 ```
 
-Then run the app on an emulator or device from Android Studio.
+Then run again from Android Studio.
 
 ## What Works Without Changes
 
@@ -98,13 +88,24 @@ Add to `package.json`:
 | File access    | Native dialogs    | Web File API        |
 | Storage        | File system       | IndexedDB           |
 
+## Known Limitations / Android vs Electron
+
+| Feature | Electron | Android |
+|---------|----------|---------|
+| Audio engine | Howler (FFmpeg for pitch/speed) | Tone.js (native pitch/speed) |
+| Normalize audio | FFmpeg loudnorm | Not available |
+| Apply fade | FFmpeg | Not available |
+| Detect key | FFmpeg | Not available |
+| Auto-update | electron-updater | Not available |
+| File picker | Native dialog | Web File API (system picker) |
+
 ## Troubleshooting
 
 - **Blank screen**: Ensure `capacitor.config.ts` has correct `webDir: 'dist'`
-- **Audio not working**: Check that the app has microphone/storage permissions in Android manifest
-- **CORS**: If loading from a dev server, ensure `androidScheme: 'https'` in `capacitor.config.ts` server config
+- **Audio not working**: User interaction required (tap) to start AudioContext on mobile
+- **File picker**: Uses system picker; storage permissions are in AndroidManifest
 
 ## Publishing
 
-1. Build release: `npx cap sync android` then build in Android Studio (Build → Generate Signed Bundle)
-2. Or use the built-in Gradle: `cd android && ./gradlew assembleRelease`
+1. Build release: `npm run cap:sync` then in Android Studio: Build → Generate Signed Bundle / APK
+2. Or: `cd android && ./gradlew assembleRelease`

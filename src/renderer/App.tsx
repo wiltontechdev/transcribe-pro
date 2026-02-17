@@ -17,6 +17,7 @@ import PWAInstallBanner from './components/ui/PWAInstallBanner';
 import RestoreSessionDialog from './components/ui/RestoreSessionDialog';
 import UpdateNotification from './components/ui/UpdateNotification';
 import { useAppStore } from './store/store';
+import { useIsMobile } from './hooks/useIsMobile';
 import { useAudioEngine } from './components/audio/useAudioEngine';
 import { getProjectLoader } from './components/project/ProjectLoader';
 import { getProjectSaver } from './components/project/ProjectSaver';
@@ -31,16 +32,9 @@ const App: React.FC = () => {
   const isLoading = useAppStore((state) => state.audio.isLoading); // Use global store
   const [showWelcome, setShowWelcome] = useState(true);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const isMobile = useIsMobile();
   const restoreAttemptedRef = React.useRef(false);
   const { toasts, closeToast } = useToast();
-  
-  // Handle window resize: mobile layout (stacked panels) for phone + tablet (≤1024), desktop for >1024
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 1024);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
   
   // Get export modal state from store
   const isExportModalOpen = useAppStore((state) => state.ui.isExportModalOpen);

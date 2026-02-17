@@ -21,7 +21,6 @@ const PlaybackPanel: React.FC = () => {
     pause, 
     stop, 
     seek,
-    resumeAudioContext,
     setSpeed,
     getSpeed
   } = useAudioEngine();
@@ -97,16 +96,15 @@ const PlaybackPanel: React.FC = () => {
   const handlePlay = async () => {
     try {
       if (!isAudioLoaded) return;
-      // Fire resume in background - don't block UI (Electron: no-op; web: unlocks AudioContext)
-      const resumePromise = resumeAudioContext();
+      // CRITICAL: play() must run before any await - browsers block audio if user gesture is lost.
+      // Awaiting seek/resume before play() loses the gesture, so first play would be silent.
       const store = useAppStore.getState();
       const selectedMarkerId = store.ui.selectedMarkerId;
       if (selectedMarkerId) {
         const marker = MarkerManager.getMarker(selectedMarkerId);
-        if (marker) await seek(marker.start);
+        if (marker) seek(marker.start); // Fire seek (sync internally) - don't await
       }
-      await resumePromise;
-      await play();
+      await play(); // play() runs howl.play() synchronously before its first await
     } catch (err) {
     }
   };
