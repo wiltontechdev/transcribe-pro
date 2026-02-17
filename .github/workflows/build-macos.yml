@@ -1,0 +1,60 @@
+# Build TranscribePro for macOS on GitHub Actions (macOS runners)
+# Produces DMG artifacts for x64 and arm64 (Apple Silicon).
+
+name: Build macOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # macOS build expects public/icon.icns; generate from logo.png on runner
+      - name: Generate macOS app icon (icon.icns)
+        run: |
+          mkdir -p icon.iconset
+          SRC="public/logo.png"
+          for size in 16 32 64 128 256 512; do
+            sips -z $size $size "$SRC" --out "icon.iconset/icon_${size}x${size}.png"
+            sips -z $((size*2)) $((size*2)) "$SRC" --out "icon.iconset/icon_${size}x${size}@2x.png"
+          done
+          iconutil -c icns icon.iconset -o public/icon.icns
+          rm -rf icon.iconset
+
+      # Use rimraf for clean on macOS (avoid PowerShell)
+      - name: Clean release folder
+        run: npx rimraf release
+
+      - name: Build app
+        run: npm run build
+
+      - name: Build macOS DMG
+        run: npx electron-builder --mac --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: release/
+          if-no-files-found: error
+          # Reduce storage usage - artifacts expire after 7 days (helps avoid quota limits)
+          retention-days: 7
