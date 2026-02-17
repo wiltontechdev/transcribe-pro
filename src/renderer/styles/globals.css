@@ -1,0 +1,2822 @@
+/* Import fonts first - must be at the top */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merienda:wght@300;400;500;600;700&display=swap');
+
+/* Rounded logo styling */
+img[src*="logo"], 
+img[alt*="logo"],
+img[alt*="Logo"],
+[class*="logo"] img {
+  border-radius: 20% !important;
+  overflow: hidden;
+}
+
+/* Kenyan Theme Foundation - Transcribe Pro */
+
+:root {
+  /* Kenyan flag color palette */
+  --color-kenyan-black: #000000;
+  --color-kenyan-black-light: #1a1a1a;
+  --color-kenyan-black-dark: #0d0d0d;
+  
+  --color-kenyan-red: #DE2910;
+  --color-kenyan-red-light: #E85A4A;
+  --color-kenyan-red-dark: #B8210C;
+  
+  --color-kenyan-green: #006644;
+  --color-kenyan-green-light: #008F66;
+  --color-kenyan-green-dark: #004D33;
+  
+  --color-white: #FFFFFF;
+  --color-white-off: #F5F5F5;
+  --color-white-warm: #FAFAFA;
+  
+  --color-dark-bg: #0F0F0F;
+  --color-dark-bg-light: #1A1A1A;
+  --color-dark-bg-lighter: #252525;
+  
+  /* Semantic colors */
+  --bg-primary: var(--color-dark-bg);
+  --bg-secondary: var(--color-dark-bg-light);
+  --bg-tertiary: var(--color-dark-bg-lighter);
+  --bg-accent-red: var(--color-kenyan-red);
+  --bg-accent-green: var(--color-kenyan-green);
+  --text-primary: var(--color-white);
+  --text-secondary: var(--color-white-off);
+  --text-accent-red: var(--color-kenyan-red-light);
+  --text-accent-green: var(--color-kenyan-green-light);
+  
+  /* Glassmorphism */
+  --glass-bg: rgba(26, 26, 26, 0.7);
+  --glass-bg-light: rgba(37, 37, 37, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: rgba(0, 0, 0, 0.3);
+  
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  
+  /* Layout */
+  --header-height: 4rem;
+  --panel-height: 8rem;
+  
+  /* Glassmorphism blur */
+  --blur-sm: 8px;
+  --blur-md: 12px;
+  --blur-lg: 16px;
+  
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  
+  /* Transitions - snappier for Electron responsiveness */
+  --transition-instant: 60ms ease;
+  --transition-fast: 100ms ease;
+  --transition-normal: 150ms ease;
+  --transition-slow: 250ms ease;
+  --transition-theme: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Neumorphic Design System - Enhanced for Dark Theme */
+  --neu-bg-base: #1a1a1a;
+  --neu-bg-darker: #141414;
+  --neu-bg-lighter: #242424;
+  --neu-shadow-light: rgba(255, 255, 255, 0.05);
+  --neu-shadow-dark: rgba(0, 0, 0, 0.5);
+  --neu-shadow-distance: 6px;
+  --neu-shadow-blur: 12px;
+  --neu-inset-shadow-light: rgba(255, 255, 255, 0.03);
+  --neu-inset-shadow-dark: rgba(0, 0, 0, 0.4);
+  
+  /* Neumorphic raised element - prominent */
+  --neu-raised: 
+    6px 6px 12px var(--neu-shadow-dark),
+    -4px -4px 10px var(--neu-shadow-light);
+  
+  /* Neumorphic pressed/inset element */
+  --neu-pressed: 
+    inset 4px 4px 8px var(--neu-shadow-dark),
+    inset -3px -3px 6px var(--neu-shadow-light);
+  
+  /* Neumorphic flat element with subtle depth */
+  --neu-flat: 
+    4px 4px 8px var(--neu-shadow-dark),
+    -3px -3px 6px var(--neu-shadow-light);
+  
+  /* Neumorphic button - convex appearance */
+  --neu-btn: 
+    5px 5px 10px var(--neu-shadow-dark),
+    -3px -3px 8px var(--neu-shadow-light),
+    inset 1px 1px 2px var(--neu-inset-shadow-light),
+    inset -1px -1px 2px var(--neu-inset-shadow-dark);
+  
+  /* Neumorphic button pressed */
+  --neu-btn-pressed: 
+    inset 3px 3px 6px var(--neu-shadow-dark),
+    inset -2px -2px 4px var(--neu-shadow-light);
+  
+  /* Neumorphic icon button */
+  --neu-icon: 
+    4px 4px 8px var(--neu-shadow-dark),
+    -2px -2px 6px var(--neu-shadow-light);
+  
+  /* Neumorphic accent with Kenyan green */
+  --neu-accent-green: 
+    4px 4px 10px rgba(0, 102, 68, 0.3),
+    -2px -2px 8px var(--neu-shadow-light),
+    inset 0 0 0 1px rgba(0, 102, 68, 0.2);
+  
+  /* Neumorphic accent with Kenyan red */
+  --neu-accent-red: 
+    4px 4px 10px rgba(222, 41, 16, 0.3),
+    -2px -2px 8px var(--neu-shadow-light),
+    inset 0 0 0 1px rgba(222, 41, 16, 0.2);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  /* Light theme color palette */
+  --color-light-bg: #FFFFFF;
+  --color-light-bg-secondary: #F5F5F5;
+  --color-light-bg-tertiary: #E8E8E8;
+  
+  /* Semantic colors for light theme */
+  --bg-primary: var(--color-light-bg);
+  --bg-secondary: var(--color-light-bg-secondary);
+  --bg-tertiary: var(--color-light-bg-tertiary);
+  --text-primary: #1A1A1A;
+  --text-secondary: #4A4A4A;
+  --text-accent-red: var(--color-kenyan-red);
+  --text-accent-green: var(--color-kenyan-green);
+  
+  /* Glassmorphism for light theme */
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-bg-light: rgba(245, 245, 245, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --glass-shadow: rgba(0, 0, 0, 0.1);
+  
+  /* Neumorphic Design System for Light Theme */
+  --neu-bg-base: #e4ebf5;
+  --neu-bg-darker: #d8e0ee;
+  --neu-bg-lighter: #f0f5fc;
+  --neu-shadow-light: rgba(255, 255, 255, 0.9);
+  --neu-shadow-dark: rgba(166, 180, 200, 0.5);
+  --neu-shadow-distance: 6px;
+  --neu-shadow-blur: 12px;
+  --neu-inset-shadow-light: rgba(255, 255, 255, 0.8);
+  --neu-inset-shadow-dark: rgba(166, 180, 200, 0.4);
+  
+  /* Neumorphic raised element (light) */
+  --neu-raised: 
+    6px 6px 12px var(--neu-shadow-dark),
+    -4px -4px 10px var(--neu-shadow-light);
+  
+  /* Neumorphic pressed/inset element (light) */
+  --neu-pressed: 
+    inset 4px 4px 8px var(--neu-shadow-dark),
+    inset -3px -3px 6px var(--neu-shadow-light);
+  
+  /* Neumorphic flat element (light) */
+  --neu-flat: 
+    4px 4px 8px var(--neu-shadow-dark),
+    -3px -3px 6px var(--neu-shadow-light);
+  
+  /* Neumorphic button (light) */
+  --neu-btn: 
+    5px 5px 10px var(--neu-shadow-dark),
+    -3px -3px 8px var(--neu-shadow-light),
+    inset 1px 1px 2px var(--neu-inset-shadow-light),
+    inset -1px -1px 2px var(--neu-inset-shadow-dark);
+  
+  /* Neumorphic button pressed (light) */
+  --neu-btn-pressed: 
+    inset 3px 3px 6px var(--neu-shadow-dark),
+    inset -2px -2px 4px var(--neu-shadow-light);
+  
+  /* Neumorphic icon button (light) */
+  --neu-icon: 
+    4px 4px 8px var(--neu-shadow-dark),
+    -2px -2px 6px var(--neu-shadow-light);
+  
+  /* Neumorphic accent with Kenyan green (light) */
+  --neu-accent-green: 
+    4px 4px 10px rgba(0, 102, 68, 0.25),
+    -2px -2px 8px var(--neu-shadow-light),
+    inset 0 0 0 1px rgba(0, 102, 68, 0.15);
+  
+  /* Neumorphic accent with Kenyan red (light) */
+  --neu-accent-red: 
+    4px 4px 10px rgba(222, 41, 16, 0.25),
+    -2px -2px 8px var(--neu-shadow-light),
+    inset 0 0 0 1px rgba(222, 41, 16, 0.15);
+}
+
+/* Dark Theme (default) */
+[data-theme="dark"] {
+  /* Dark theme uses default root variables */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Performance: reduce layout thrashing, faster click response */
+html, body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  touch-action: manipulation; /* Removes 300ms tap delay on mobile */
+  height: 100% !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif !important;
+  background: var(--neu-bg-base) !important;
+  color: var(--text-primary) !important;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background var(--transition-theme), color var(--transition-theme);
+}
+
+#root {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  contain: layout style; /* Performance: isolate layout for smoother rendering */
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* Layout Structure */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  contain: layout; /* Performance: reduce reflow in Electron */
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text-primary);
+  transition: color var(--transition-theme);
+  padding-bottom: 28px; /* Space for status bar */
+}
+
+.menu-bar-container {
+  height: clamp(3.25rem, 5vh, 4.5rem);
+  min-height: clamp(3rem, 4.5vh, 4rem);
+  overflow: visible;
+  background: rgba(26, 26, 26, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(0.5rem, 1vw, 1.25rem);
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: background var(--transition-theme), box-shadow var(--transition-theme);
+  position: relative;
+  z-index: 999999;
+  max-width: 100vw;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.menu-bar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+  overflow-y: visible; /* Allow dropdowns to overflow vertically */
+}
+
+/* Responsive menu bar padding */
+@media (max-width: 1024px) {
+  .menu-bar {
+    padding: 0 0.75rem;
+    gap: 0.5rem;
+  }
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  background: transparent;
+  padding: clamp(0.4rem, 0.6vw, 1rem);
+  gap: clamp(0.4rem, 0.5vw, 0.75rem);
+  max-width: 100vw;
+  width: 100%;
+}
+
+/* Responsive padding for smaller screens */
+@media (max-width: 1024px) {
+  .main-content {
+    padding: var(--spacing-xs);
+    gap: var(--spacing-xs);
+  }
+}
+
+/* Desktop: waveform section scales with viewport; container can grow when marker timeline content grows */
+.waveform-section {
+  flex: 0 1 auto;
+  min-height: clamp(390px, 38vh, 520px);
+  max-height: none;
+  height: auto;
+  background: var(--neu-bg-base);
+  border: none;
+  border-radius: clamp(16px, 1.2vw, 24px);
+  padding: clamp(0.4rem, 0.5vw, 0.75rem);
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  gap: 0; /* No space between waveform strip and marker timeline */
+  box-shadow: var(--neu-raised);
+  transition: all 0.3s ease;
+}
+
+.panels-section {
+  flex: 0 1 auto;
+  min-height: clamp(140px, 18vh, 220px);
+  max-height: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(0.4rem, 0.5vw, 0.75rem);
+  padding: 0;
+  background: transparent;
+}
+
+/* Responsive: Stack panels vertically on smaller screens */
+@media (max-width: 1024px) {
+  .panels-section {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-xs);
+    min-height: 200px;
+    max-height: 250px;
+  }
+  
+  .waveform-section {
+    min-height: 200px;
+    max-height: 500px;
+    height: clamp(200px, 34vh, 500px);
+  }
+}
+
+/* Responsive adjustments for smaller laptops */
+@media (max-width: 1366px) {
+  .playback-panel {
+    padding: 0.5rem;
+  }
+  
+  .playback-panel button {
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+
+/* Responsive for very small screens */
+@media (max-width: 768px) {
+  .main-content {
+    padding: var(--spacing-xs);
+    gap: var(--spacing-xs);
+  }
+  
+  .waveform-section {
+    flex: 0 0 45%;
+    max-height: 45%;
+    padding: var(--spacing-sm);
+  }
+  
+  .panels-section {
+    flex: 0 0 50%;
+    max-height: 50%;
+  }
+  
+  .playback-panel {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+  
+  .playback-panel button {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
+.panel {
+  background: var(--neu-bg-base);
+  border: none;
+  border-radius: clamp(12px, 1vw, 20px);
+  padding: clamp(0.4rem, 0.5vw, 0.75rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: clamp(140px, 18vh, 220px);
+  max-height: none;
+  font-size: clamp(0.875rem, 0.9vw + 0.5rem, 1.05rem);
+  box-shadow: var(--neu-raised);
+  transition: all var(--transition-normal);
+}
+
+/* Marker panel (list): fluid so more markers grow the section; container grows with it */
+.panels-section > .panel:last-child {
+  min-height: clamp(140px, 18vh, 220px);
+  max-height: none;
+}
+
+.panel:hover {
+  box-shadow: var(--neu-raised), 0 0 8px rgba(0, 102, 68, 0.1);
+}
+
+/* Component placeholders - styles are now inline for better visibility */
+
+/* Smooth scrolling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  transition: background var(--transition-fast);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ====== NEUMORPHIC COMPONENT CLASSES ====== */
+
+/* Neumorphic Button Base - snappy for Electron */
+.neu-btn {
+  background: var(--neu-bg-base);
+  border: none;
+  border-radius: 12px;
+  padding: 10px 20px;
+  box-shadow: var(--neu-btn);
+  cursor: pointer;
+  transition: transform var(--transition-instant), box-shadow var(--transition-fast);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.neu-btn:hover {
+  box-shadow: var(--neu-flat);
+}
+
+.neu-btn:active,
+.neu-btn.active {
+  box-shadow: var(--neu-btn-pressed);
+}
+
+/* Neumorphic Icon Button - snappy for Electron */
+.neu-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--neu-bg-base);
+  border: none;
+  box-shadow: var(--neu-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--transition-instant), box-shadow var(--transition-fast);
+  color: var(--text-primary);
+}
+
+.neu-icon-btn:hover {
+  color: var(--color-kenyan-green);
+  box-shadow: var(--neu-flat);
+}
+
+.neu-icon-btn:active,
+.neu-icon-btn.active {
+  box-shadow: var(--neu-pressed);
+  color: var(--color-kenyan-green);
+}
+
+/* Neumorphic Card */
+.neu-card {
+  background: var(--neu-bg-base);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--neu-raised);
+  transition: all 0.3s ease;
+}
+
+.neu-card:hover {
+  box-shadow: var(--neu-raised), 0 0 12px rgba(0, 102, 68, 0.1);
+}
+
+/* Neumorphic Inset/Pressed Container */
+.neu-inset {
+  background: var(--neu-bg-base);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: var(--neu-pressed);
+}
+
+/* Neumorphic Input */
+.neu-input {
+  background: var(--neu-bg-base);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  box-shadow: var(--neu-pressed);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.neu-input:focus {
+  outline: none;
+  box-shadow: var(--neu-flat);
+}
+
+.neu-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* Neumorphic Segmented Control / Tabs */
+.neu-tabs {
+  display: flex;
+  background: var(--neu-bg-base);
+  border-radius: 14px;
+  padding: 4px;
+  box-shadow: var(--neu-raised);
+  position: relative;
+}
+
+.neu-tab {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.3s ease;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.neu-tab:hover {
+  color: var(--color-kenyan-green);
+}
+
+.neu-tab.active {
+  color: var(--color-kenyan-green);
+  box-shadow: var(--neu-pressed);
+}
+
+/* Neumorphic Slider Track */
+.neu-slider-track {
+  width: 100%;
+  height: 8px;
+  background: var(--neu-bg-base);
+  border-radius: 4px;
+  box-shadow: var(--neu-pressed);
+  position: relative;
+}
+
+.neu-slider-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-kenyan-green), var(--color-kenyan-green-light));
+  border-radius: 4px;
+  transition: width 0.1s ease;
+}
+
+.neu-slider-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--neu-bg-lighter);
+  box-shadow: var(--neu-icon);
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.neu-slider-thumb:hover {
+  box-shadow: var(--neu-flat), 0 0 8px rgba(0, 102, 68, 0.3);
+}
+
+/* Neumorphic Progress Bar */
+.neu-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--neu-bg-base);
+  border-radius: 3px;
+  box-shadow: var(--neu-pressed);
+  overflow: hidden;
+}
+
+.neu-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-kenyan-green), var(--color-kenyan-red));
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+/* Neumorphic Toggle Switch - snappy for Electron */
+.neu-switch {
+  width: 50px;
+  height: 26px;
+  background: var(--neu-bg-base);
+  border-radius: 13px;
+  box-shadow: var(--neu-raised);
+  position: relative;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.neu-switch::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  top: 3px;
+  left: 3px;
+  transition: transform var(--transition-fast), left var(--transition-fast);
+  box-shadow: var(--neu-icon);
+}
+
+.neu-switch.active {
+  background: linear-gradient(135deg, var(--color-kenyan-green-dark), var(--color-kenyan-green));
+}
+
+.neu-switch.active::after {
+  left: calc(100% - 23px);
+  background: var(--neu-bg-lighter);
+}
+
+/* Neumorphic Chip */
+.neu-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--neu-bg-base);
+  border-radius: 20px;
+  box-shadow: var(--neu-flat);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+/* Neumorphic Badge */
+.neu-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: var(--color-kenyan-red);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 2px 6px rgba(222, 41, 16, 0.4);
+}
+
+/* Neumorphic Play Button */
+.neu-play-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--neu-bg-base);
+  border: none;
+  box-shadow: var(--neu-btn);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-kenyan-green);
+}
+
+.neu-play-btn:hover {
+  box-shadow: var(--neu-flat), 0 0 12px rgba(0, 102, 68, 0.2);
+}
+
+.neu-play-btn:active {
+  box-shadow: var(--neu-btn-pressed);
+}
+
+.neu-play-btn.playing {
+  background: linear-gradient(135deg, var(--color-kenyan-green-dark), var(--color-kenyan-green));
+  color: white;
+  box-shadow: var(--neu-accent-green);
+}
+
+/* Neumorphic Menu Item */
+.neu-menu-item {
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.neu-menu-item:hover {
+  background: var(--neu-bg-darker);
+  color: var(--color-kenyan-green);
+}
+
+.neu-menu-item.active {
+  background: var(--neu-bg-base);
+  box-shadow: var(--neu-pressed);
+  color: var(--color-kenyan-green);
+}
+
+/* ====== END NEUMORPHIC CLASSES ====== */
+
+/* Utility classes */
+.text-kenyan-red {
+  color: var(--text-accent-red);
+}
+
+.text-kenyan-green {
+  color: var(--text-accent-green);
+}
+
+.text-white {
+  color: var(--text-primary);
+}
+
+.glass-effect {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 16px var(--glass-shadow);
+}
+
+.glass-effect-light {
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 2px 12px var(--glass-shadow);
+}
+
+/* Snappy transitions for interactive elements - instant feedback */
+button, a, [role="button"] {
+  transition: transform var(--transition-instant), box-shadow var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+
+button:active, .button:active, a:active, [role="button"]:active {
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+/* Focus states for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--text-accent-red);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Menu bar button animations */
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(222, 41, 16, 0.25);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(222, 41, 16, 0.4);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes musicWave {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.2);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.menu-bar-button {
+  animation: slideIn 0.4s ease-out;
+  border: none;
+  outline: none;
+  transition: background var(--transition-theme), border-color var(--transition-theme), color var(--transition-theme), box-shadow var(--transition-theme);
+}
+
+.menu-bar-button:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.menu-bar-button:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.menu-bar-button:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* Smooth hover effects with music-inspired animations */
+.menu-bar-button:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.menu-bar-button:hover .button-glow {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.menu-bar-button:active {
+  transform: translateY(0) scale(0.98);
+  transition: all 0.1s ease;
+}
+
+/* Music wave effect on active button */
+.menu-bar-button:active span {
+  animation: musicWave 0.3s ease-in-out;
+}
+
+/* Icon button styles */
+.icon-button {
+  border: none;
+  outline: none;
+  transition: background var(--transition-theme), border-color var(--transition-theme), color var(--transition-theme), box-shadow var(--transition-theme);
+}
+
+.icon-button svg {
+  transition: transform var(--transition-fast);
+}
+
+.icon-button:hover svg {
+  transform: rotate(5deg) scale(1.1);
+}
+
+.icon-button:active svg {
+  transform: rotate(-5deg) scale(0.95);
+}
+
+/* Special animations for specific icons */
+.icon-button[id="undo"]:hover svg,
+.icon-button[id="redo"]:hover svg {
+  animation: rotateIcon 0.5s ease-in-out;
+}
+
+.icon-button[id="theme"]:hover svg {
+  animation: rotateIcon 1s ease-in-out infinite;
+}
+
+@keyframes rotateIcon {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(180deg); }
+  100% { transform: rotate(360deg); }
+}
+
+
+
+/* Marker Timeline Container - Neumorphic, fluid: grows with marker content so nothing is cut off */
+.marker-timeline {
+  position: relative;
+  width: 100%;
+  min-height: 50px;
+  max-height: none;
+  flex: 0 1 auto;
+  background: rgba(0, 102, 68, 0.08);
+  border: none;
+  border-radius: 16px;
+  padding: 4px 8px;
+  overflow: visible;
+  z-index: 10;
+  box-shadow: var(--neu-raised);
+}
+
+/* Marker Tooltip */
+.marker-tooltip {
+  white-space: nowrap;
+  font-family: 'Gochi Hand', 'Annie Use Your Telescope', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  animation: tooltipFadeIn 0.15s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Smooth transitions for marker interactions */
+.marker-timeline rect {
+  transition: opacity 0.2s ease, stroke-width 0.2s ease, stroke 0.2s ease;
+}
+
+.marker-timeline rect:hover {
+  opacity: 0.95 !important;
+}
+
+/* Marker text styling */
+.marker-timeline text {
+  font-family: 'Gochi Hand', 'Annie Use Your Telescope', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  user-select: none;
+}
+
+/* Waveform Canvas Styles */
+.waveform-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 160px;
+  max-height: 200px;
+}
+
+/* Desktop: waveform strip + marker timeline; heights scale with viewport (vh) on larger screens */
+@media (min-width: 769px) {
+  /* First child = waveform strip (small); scales up on larger devices */
+  .waveform-section > *:first-child {
+    flex: 0 0 clamp(100px, 14vh, 220px) !important;
+    min-height: clamp(150px, 12vh, 300px) !important;
+    max-height: clamp(200px, 18vh, 200px) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Marker timeline container: sizes to content (fill only on large screens, see 1440px+) */
+  .waveform-section > *:last-child {
+    flex: 0 0 auto !important;
+    min-height: clamp(90px, 12vh, 140px) !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  .waveform-section .waveform-container {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: none;
+  }
+  
+  /* Marker timeline: content height on desktop; full-height fill only at 1440px+ */
+  .waveform-section .marker-timeline {
+    flex: 0 0 auto !important;
+    min-height: clamp(100%, 6vh, 100%) !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  .waveform-container {
+    min-height: clamp(100px, 12vh, 160px);
+    max-height: none;
+  }
+  
+  .waveform-container canvas {
+    min-height: 100%;
+  }
+
+  /* Playback panel: buttons/icons +25%, font +10% for visibility */
+  .playback-panel {
+    padding: clamp(0.35rem, 0.5vw, 0.65rem) !important;
+    gap: clamp(0.25rem, 0.4vw, 0.5rem) !important;
+  }
+
+  .playback-panel button {
+    min-width: clamp(45px, 3.1vw, 65px) !important;
+    min-height: clamp(45px, 3.1vw, 65px) !important;
+    width: clamp(45px, 3.1vw, 65px) !important;
+    height: clamp(45px, 3.1vw, 65px) !important;
+    padding: clamp(0.3rem, 0.4vw, 0.5rem) !important;
+  }
+
+  .playback-panel button svg {
+    width: clamp(22px, 1.5vw, 32px) !important;
+    height: clamp(22px, 1.5vw, 32px) !important;
+  }
+
+  /* Marker panel + playback row: font +10%, marker panel buttons/icons +25% */
+  .panels-section .panel {
+    font-size: 1.1em !important;
+  }
+
+  .panels-section .panel button {
+    min-width: clamp(36px, 2.5vw, 48px) !important;
+    min-height: clamp(36px, 2.5vw, 48px) !important;
+  }
+
+  .panels-section .panel button svg,
+  .panels-section .panel svg {
+    width: clamp(18px, 1.2vw, 28px) !important;
+    height: clamp(18px, 1.2vw, 28px) !important;
+  }
+
+  /* Marker timeline strip: default min-height, grows with content; font scales */
+  .marker-timeline {
+    min-height: clamp(50px, 6vh, 90px);
+    max-height: none;
+    font-size: clamp(0.75rem, 0.7vw + 0.5rem, 0.95rem);
+  }
+}
+
+.waveform-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  /* Prevent blur on high-DPI screens */
+  image-rendering: auto;
+  /* Ensure canvas is sharp on all devices */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Waveform container hover effect */
+.waveform-container:hover .waveform-canvas {
+  opacity: 0.95;
+  transition: opacity var(--transition-fast);
+}
+
+/* Global Range Slider Styles for Kenyan Theme */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]:focus {
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Playback Panel specific animations */
+@keyframes playbackPulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 102, 68, 0.3); }
+  50% { box-shadow: 0 0 25px rgba(0, 102, 68, 0.5); }
+}
+
+/* Welcome screen loading animation */
+@keyframes welcomeFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Glassmorphism utility class */
+.glass-panel {
+  background: rgba(26, 26, 26, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Kenyan flag colors utility classes */
+.kenyan-red { color: #DE2910; }
+.kenyan-green { color: #006644; }
+.kenyan-black { color: #000000; }
+.kenyan-white { color: #FFFFFF; }
+
+.kenyan-red-bg { background-color: #DE2910; }
+.kenyan-green-bg { background-color: #006644; }
+.kenyan-black-bg { background-color: #000000; }
+.kenyan-white-bg { background-color: #FFFFFF; }
+
+/* Glow effects */
+.glow-red { box-shadow: 0 0 20px rgba(222, 41, 16, 0.4); }
+.glow-green { box-shadow: 0 0 20px rgba(0, 102, 68, 0.4); }
+
+/* Button hover animations */
+.glass-button {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-button:hover {
+  transform: translateY(-2px);
+}
+
+.glass-button:active {
+  transform: translateY(0);
+}
+
+/* Adinkra-Inspired Geometric Patterns */
+.adinkra-pattern {
+  position: relative;
+  overflow: hidden;
+}
+
+.adinkra-pattern::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0.03;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(0, 102, 68, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(222, 41, 16, 0.1) 0%, transparent 50%),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(0, 102, 68, 0.02) 10px,
+      rgba(0, 102, 68, 0.02) 20px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 10px,
+      rgba(222, 41, 16, 0.02) 10px,
+      rgba(222, 41, 16, 0.02) 20px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle geometric overlay for panels */
+.panel-pattern {
+  position: relative;
+}
+
+.panel-pattern::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0.02;
+  background-image: 
+    linear-gradient(30deg, rgba(0, 102, 68, 0.1) 12.5%, transparent 12.5%, transparent 50%, rgba(0, 102, 68, 0.1) 50%, rgba(0, 102, 68, 0.1) 62.5%, transparent 62.5%, transparent),
+    linear-gradient(60deg, rgba(222, 41, 16, 0.1) 12.5%, transparent 12.5%, transparent 50%, rgba(222, 41, 16, 0.1) 50%, rgba(222, 41, 16, 0.1) 62.5%, transparent 62.5%, transparent);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Enhanced Button Animations - snappier for Electron */
+button, .button {
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--transition-instant), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+button::before, .button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+  pointer-events: none;
+}
+
+button:hover::before, .button:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+button:active, .button:active {
+  transform: scale(0.98);
+  transition: transform 0.05s ease;
+}
+
+/* Smooth Panel Transitions */
+.panel, .waveform-section {
+  transition: 
+    background var(--transition-theme),
+    box-shadow var(--transition-normal),
+    transform var(--transition-normal);
+}
+
+.panel:hover, .waveform-section:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--neu-raised), 0 8px 24px rgba(0, 102, 68, 0.15);
+}
+
+/* Loading Spinner Component */
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--color-kenyan-green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-spinner-large {
+  width: 40px;
+  height: 40px;
+  border-width: 4px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Enhanced Hover Effects */
+.interactive-element {
+  transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.interactive-element:hover {
+  transform: translateY(-2px) scale(1.02);
+  filter: brightness(1.1);
+}
+
+.interactive-element:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Desktop fluid scaling: same arrangement, sizes scale with viewport (no fixed breakpoints) */
+/* Section heights use vh/clamp in base rules; html font-size scales rem so fonts/icons grow on larger screens */
+@media (min-width: 1025px) {
+  html {
+    font-size: clamp(14px, 0.85vw + 10px, 18px);
+  }
+
+  .app-container {
+    padding: clamp(0.25rem, 0.4vw, 0.75rem);
+    padding-bottom: clamp(20px, 2.5vh, 32px);
+    overflow: hidden; /* Menu fixed; only main-content scrolls */
+  }
+
+  /* Page scrollable so content is never cut off; menu stays fixed at top */
+  .main-content {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Menu bar: taller, no scroll (stays fixed; overflow-y visible so dropdowns aren't clipped) */
+  .menu-bar-container {
+    height: clamp(4rem, 6vh, 5.5rem);
+    min-height: clamp(3.75rem, 5.5vh, 5rem);
+    flex-shrink: 0;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+}
+
+/* Dark Mode Enhancements */
+[data-theme="dark"] {
+  --bg-pattern-opacity: 0.03;
+}
+
+[data-theme="dark"] .panel-pattern::after {
+  opacity: 0.02;
+}
+
+[data-theme="dark"] .adinkra-pattern::before {
+  opacity: 0.03;
+}
+
+/* Smooth Scroll Behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced Focus States */
+*:focus-visible {
+  outline: 2px solid var(--color-kenyan-green);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+  transition: outline-offset 0.2s ease;
+}
+
+/* Toast Notification Animations */
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+}
+
+/* Modal Enhancements */
+.modal-backdrop {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+/* Consistent Spacing Utilities */
+.spacing-xs { margin: var(--spacing-xs); }
+.spacing-sm { margin: var(--spacing-sm); }
+.spacing-md { margin: var(--spacing-md); }
+.spacing-lg { margin: var(--spacing-lg); }
+.spacing-xl { margin: var(--spacing-xl); }
+
+.padding-xs { padding: var(--spacing-xs); }
+.padding-sm { padding: var(--spacing-sm); }
+.padding-md { padding: var(--spacing-md); }
+.padding-lg { padding: var(--spacing-lg); }
+.padding-xl { padding: var(--spacing-xl); }
+
+/* Alignment Utilities */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Responsive Text Sizing - Keep consistent across screen sizes */
+@media (max-width: 1280px) {
+  html { font-size: 14px; }
+}
+
+@media (min-width: 1281px) {
+  html { font-size: 16px; } /* Consistent font size for all larger screens */
+}
+
+/* ====== LARGE SCREENS: waveform -25% (give to marker timeline), smaller panels, larger playback & menu icons ====== */
+@media (min-width: 1440px) {
+  .main-content {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.5rem, 0.8vw, 1rem);
+    padding: clamp(0.5rem, 0.8vw, 1.25rem);
+  }
+
+  /* Waveform section: reduced by ~10%; the 10% is given to the bottom row */
+  .waveform-section {
+    flex: 1 1 auto;
+    min-height: clamp(378px, 40.5vh, 540px);
+    max-height: none;
+  }
+
+  /* Waveform strip: reduced so marker timeline area gets space */
+  .waveform-section > *:first-child {
+    flex: 0 0 clamp(216px, 23.4vh, 324px) !important;
+    min-height: clamp(202px, 21.6vh, 306px) !important;
+    max-height: none !important;
+  }
+
+  .waveform-section .waveform-container {
+    min-height: clamp(189px, 19.8vh, 283px) !important;
+  }
+
+  .waveform-container canvas {
+    min-height: 100% !important;
+  }
+
+  /* Bottom row: +10% height (taken from waveform section) so panel contents are visible */
+  .panels-section {
+    flex: 0 0 auto !important;
+    height: clamp(154px, 17.6vh, 220px) !important;
+    min-height: clamp(154px, 17.6vh, 220px) !important;
+    max-height: clamp(154px, 17.6vh, 220px) !important;
+    overflow: hidden;
+  }
+
+  .panel {
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: visible !important;
+    font-size: clamp(0.99rem, 0.94vw + 0.55rem, 1.21rem) !important; /* +10% font */
+  }
+
+  /* Playback panel: no scroll, icons +25% */
+  .playback-panel {
+    padding: clamp(0.4rem, 0.5vw, 0.6rem) !important;
+    gap: clamp(0.3rem, 0.4vw, 0.5rem) !important;
+    overflow: visible !important;
+  }
+
+  .playback-panel button {
+    min-width: clamp(50px, 3.5vw, 65px) !important;
+    min-height: clamp(50px, 3.5vw, 65px) !important;
+    width: clamp(50px, 3.5vw, 65px) !important;
+    height: clamp(50px, 3.5vw, 65px) !important;
+    padding: clamp(0.3rem, 0.4vw, 0.5rem) !important;
+  }
+
+  .playback-panel button svg {
+    width: clamp(25px, 1.5vw, 32px) !important;
+    height: clamp(25px, 1.5vw, 32px) !important;
+  }
+
+  /* Marker panel: buttons/icons +25% */
+  .panels-section .panel button {
+    min-width: clamp(44px, 3vw, 58px) !important;
+    min-height: clamp(44px, 3vw, 58px) !important;
+  }
+
+  .panels-section .panel button svg,
+  .panels-section .panel svg {
+    width: clamp(22px, 1.4vw, 30px) !important;
+    height: clamp(22px, 1.4vw, 30px) !important;
+  }
+
+  /* Menu bar: REDUCED height, modest font/icon sizes */
+  .menu-bar-container {
+    height: clamp(3.5rem, 5vh, 4.25rem);
+    min-height: clamp(3.25rem, 4.5vh, 4rem);
+    padding: 0 clamp(0.5rem, 1vw, 1rem);
+  }
+
+  .menu-bar-button {
+    font-size: clamp(0.9rem, 0.7vw + 0.55rem, 1.05rem);
+    padding: clamp(0.35rem, 0.45vw, 0.5rem) clamp(0.5rem, 0.75vw, 0.85rem);
+  }
+
+  .menu-bar-button svg,
+  .menu-bar button svg {
+    width: clamp(16px, 0.9vw + 12px, 20px) !important;
+    height: clamp(16px, 0.9vw + 12px, 20px) !important;
+  }
+
+  .menu-bar span {
+    font-size: clamp(0.85rem, 0.65vw + 0.5rem, 1.05rem) !important;
+  }
+
+  .menu-bar button {
+    min-width: clamp(28px, 1.6vw, 36px) !important;
+    min-height: clamp(28px, 1.6vw, 36px) !important;
+    width: auto !important;
+    height: auto !important;
+    padding: clamp(0.25rem, 0.35vw, 0.4rem) !important;
+  }
+
+  /* Marker timeline: FILL remaining height in waveform section (big screens only) */
+  .waveform-section > *:last-child {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .waveform-section .marker-timeline {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    font-size: clamp(0.85rem, 0.65vw + 0.5rem, 1.05rem);
+  }
+
+  .waveform-section .marker-timeline > div {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important; /* keep timeline at top near waveform */
+  }
+
+  /* Marker timeline SVG fills full remaining height of its container (no max-height cap) */
+  .waveform-section .marker-timeline svg {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .marker-timeline text {
+    font-size: inherit;
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: clamp(15px, 0.75vw + 15px, 20px);
+  }
+
+  .main-content {
+    gap: clamp(0.5rem, 0.8vw, 1rem);
+    padding: clamp(0.5rem, 0.8vw, 1.25rem);
+  }
+
+  /* Waveform section: reduced by ~10%; the 10% goes to the bottom row */
+  .waveform-section {
+    min-height: clamp(432px, 45vh, 450px);
+    border-radius: clamp(16px, 1vw, 24px);
+    padding: clamp(0.45rem, 0.5vw, 0.85rem);
+  }
+
+  .waveform-section > *:first-child {
+    flex: 0 0 clamp(256px, 27vh, 378px) !important;
+    min-height: clamp(243px, 25.2vh, 351px) !important;
+    max-height: none !important;
+  }
+
+  .waveform-section .waveform-container {
+    min-height: clamp(229px, 24.3vh, 337px) !important;
+  }
+
+  /* Bottom row: +10% height (from waveform section) */
+  .panels-section {
+    flex: 0 0 auto !important;
+    height: clamp(154px, 17.6vh, 242px) !important;
+    min-height: clamp(154px, 17.6vh, 242px) !important;
+    max-height: clamp(154px, 17.6vh, 242px) !important;
+    gap: clamp(0.45rem, 0.6vw, 0.85rem);
+    overflow: hidden;
+  }
+
+  .panel {
+    min-height: 0 !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: visible !important;
+    font-size: clamp(0.99rem, 0.55vw + 0.72rem, 1.27rem) !important; /* +10% font */
+    border-radius: clamp(12px, 0.9vw, 20px);
+    padding: clamp(0.4rem, 0.5vw, 0.85rem);
+  }
+
+  .playback-panel {
+    overflow: visible !important;
+  }
+
+  .playback-panel button {
+    min-width: clamp(52px, 3.5vw, 70px) !important;
+    min-height: clamp(52px, 3.5vw, 70px) !important;
+    width: clamp(52px, 3.5vw, 70px) !important;
+    height: clamp(52px, 3.5vw, 70px) !important;
+  }
+
+  .playback-panel button svg {
+    width: clamp(27px, 1.6vw, 35px) !important;
+    height: clamp(27px, 1.6vw, 35px) !important;
+  }
+
+  .panels-section .panel button {
+    min-width: clamp(48px, 3.2vw, 62px) !important;
+    min-height: clamp(48px, 3.2vw, 62px) !important;
+  }
+
+  .panels-section .panel button svg,
+  .panels-section .panel svg {
+    width: clamp(24px, 1.5vw, 32px) !important;
+    height: clamp(24px, 1.5vw, 32px) !important;
+  }
+
+  /* Menu bar: reduced height */
+  .menu-bar-container {
+    height: clamp(3.75rem, 5.5vh, 4.5rem);
+    min-height: clamp(3.5rem, 5vh, 4.25rem);
+    padding: 0 clamp(0.6rem, 1vw, 1.25rem);
+  }
+
+  .menu-bar-button {
+    font-size: clamp(0.9rem, 0.5vw + 0.65rem, 1.1rem);
+    padding: clamp(0.35rem, 0.5vw, 0.55rem) clamp(0.55rem, 0.8vw, 1rem);
+  }
+
+  .menu-bar-button svg,
+  .menu-bar button svg {
+    width: clamp(17px, 0.85vw + 14px, 22px) !important;
+    height: clamp(17px, 0.85vw + 14px, 22px) !important;
+  }
+
+  .menu-bar span {
+    font-size: clamp(0.9rem, 0.5vw + 0.6rem, 1.1rem) !important;
+  }
+
+  .menu-bar button {
+    min-width: clamp(30px, 1.8vw, 40px) !important;
+    min-height: clamp(30px, 1.8vw, 40px) !important;
+    padding: clamp(0.28rem, 0.4vw, 0.45rem) !important;
+  }
+
+  .marker-timeline {
+    min-height: clamp(140px, 15vh, 220px) !important;
+    font-size: clamp(0.9rem, 0.5vw + 0.6rem, 1.1rem);
+  }
+
+  /* Marker timeline container fills remaining height; no max-height so SVG can fill it */
+  .waveform-section > *:last-child {
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+}
+
+/* Additional compact layout utilities */
+.compact-container {
+  max-width: 1920px;
+  margin: 0 auto;
+}
+
+/* Smooth zoom transition animation */
+@keyframes zoomTransition {
+  from { opacity: 0.8; }
+  to { opacity: 1; }
+}
+
+/* Smooth scroll animation for viewport changes */
+.smooth-viewport {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Animation for zoom in/out */
+.zoom-animation {
+  animation: zoomTransition 0.25s ease-out;
+}
+
+/* ====== MOBILE RESPONSIVE DESIGN ====== */
+
+/* Small tablets and large phones (481px - 768px) */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+  
+  body {
+    overflow-x: hidden;
+  }
+  
+  .app-container {
+    padding: var(--spacing-xs);
+    padding-bottom: 20px;
+    overflow-x: hidden;
+  }
+  
+  /* Menu Bar - Scrollable horizontal */
+  .menu-bar-container {
+    height: 3.5rem;
+    min-height: 3.5rem;
+    padding: 0 var(--spacing-xs);
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  
+  .menu-bar-container::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .menu-bar {
+    gap: var(--spacing-xs);
+    min-width: max-content;
+    padding: 0 var(--spacing-xs);
+  }
+  
+  /* Main Content */
+  .main-content {
+    padding: var(--spacing-xs);
+    gap: var(--spacing-xs);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Waveform Section - Fixed height */
+  .waveform-section {
+    flex: 0 0 auto;
+    min-height: 120px;
+    max-height: 180px;
+    padding: var(--spacing-xs);
+    border-radius: 12px;
+  }
+  
+  .waveform-container {
+    min-height: 100px;
+    max-height: 160px;
+  }
+  
+  /* Panels Section - Stack vertically */
+  .panels-section {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    max-height: none;
+    gap: var(--spacing-xs);
+  }
+  
+  .panel {
+    min-height: 100px;
+    max-height: 200px;
+    padding: var(--spacing-xs);
+    border-radius: 12px;
+  }
+  
+  /* Marker Timeline (not applied inside timeline-mobile-section; container has its own min-height) */
+  .marker-timeline {
+    min-height: 200px;
+    max-height: 250px;
+    padding: var(--spacing-xs);
+    border-radius: 12px;
+  }
+
+  .mobile-panel.timeline-mobile-section .marker-timeline {
+    min-height: 225px !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* Neumorphic components - smaller on mobile */
+  .neu-btn {
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+  
+  .neu-icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .neu-play-btn {
+    width: 42px;
+    height: 42px;
+  }
+  
+  .neu-tab {
+    padding: 6px 12px;
+    font-size: 12px;
+    gap: 4px;
+  }
+  
+  .neu-chip {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+  
+  /* Buttons - touch-friendly sizes */
+  button, .button {
+    min-height: 40px;
+    min-width: 40px;
+  }
+  
+  .icon-button svg {
+    width: 18px;
+    height: 18px;
+  }
+  
+  /* Playback panel adjustments */
+  .playback-panel {
+    padding: var(--spacing-xs) !important;
+    gap: var(--spacing-xs) !important;
+  }
+  
+  .playback-panel button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+  
+  /* Modal adjustments */
+  .modal-content {
+    max-width: 95vw !important;
+    max-height: 85vh !important;
+    margin: var(--spacing-sm);
+  }
+}
+
+/* Mobile phones (max-width: 480px) */
+@media (max-width: 480px) {
+  html {
+    font-size: 13px;
+  }
+  
+  :root {
+    --spacing-xs: 0.2rem;
+    --spacing-sm: 0.35rem;
+    --spacing-md: 0.75rem;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 12px;
+  }
+  
+  .app-container {
+    padding: 2px;
+    padding-bottom: 16px;
+  }
+  
+  /* Compact Menu Bar */
+  .menu-bar-container {
+    height: 3rem;
+    min-height: 3rem;
+    padding: 0 2px;
+  }
+  
+  .menu-bar {
+    gap: 2px;
+    padding: 0 2px;
+  }
+  
+  /* Main Content - Vertical scrolling layout */
+  .main-content {
+    padding: 4px;
+    gap: 4px;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  
+  /* Waveform Section - Compact */
+  .waveform-section {
+    min-height: 100px;
+    max-height: 140px;
+    padding: 4px;
+    border-radius: 10px;
+  }
+  
+  .waveform-container {
+    min-height: 80px;
+    max-height: 120px;
+  }
+  
+  .waveform-canvas {
+    max-height: 200px;
+  }
+  
+  /* Panels - Full width stacked */
+  .panels-section {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    min-height: auto;
+    max-height: none;
+  }
+  
+  .panel {
+    min-height: 80px;
+    max-height: 150px;
+    padding: 6px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+  
+  /* Marker Timeline - Compact (not applied inside timeline-mobile-section; see below) */
+  .marker-timeline {
+    min-height: 60px;
+    max-height: 100px;
+    padding: 4px;
+    border-radius: 10px;
+  }
+
+  .mobile-panel.timeline-mobile-section .marker-timeline {
+    min-height: 225px !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* Neumorphic components - mobile sizes */
+  .neu-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+  
+  .neu-icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .neu-play-btn {
+    width: 38px;
+    height: 38px;
+  }
+  
+  .neu-tab {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+  
+  .neu-tabs {
+    border-radius: 10px;
+    padding: 2px;
+  }
+  
+  .neu-card {
+    padding: 10px;
+    border-radius: 12px;
+  }
+  
+  .neu-inset {
+    padding: 8px;
+    border-radius: 8px;
+  }
+  
+  .neu-input {
+    padding: 8px 12px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+  
+  .neu-chip {
+    padding: 3px 8px;
+    font-size: 10px;
+    border-radius: 14px;
+  }
+  
+  .neu-menu-item {
+    padding: 8px 12px;
+    font-size: 12px;
+    gap: 8px;
+  }
+  
+  /* Touch-friendly button sizes */
+  button, .button {
+    min-height: 36px;
+    min-width: 36px;
+    touch-action: manipulation;
+  }
+  
+  .icon-button {
+    min-width: 32px;
+    min-height: 32px;
+  }
+  
+  .icon-button svg {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Playback Panel - larger buttons so visible on small phones (≤480px) */
+  .playback-panel {
+    padding: 8px !important;
+    gap: 8px !important;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .playback-panel button {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+  }
+  
+  /* Hide some elements on very small screens */
+  .hide-on-mobile {
+    display: none !important;
+  }
+  
+  /* Modal - Centered on mobile with proper z-index */
+  .modal-backdrop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 999999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(0, 0, 0, 0.85) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+  
+  .modal-content {
+    max-width: 95vw !important;
+    max-height: 80vh !important;
+    width: 95% !important;
+    margin: auto !important;
+    border-radius: 12px !important;
+    position: relative !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    z-index: 1000000 !important;
+  }
+  
+  /* Form inputs in modals - larger touch targets */
+  .modal-content input,
+  .modal-content select,
+  .modal-content textarea {
+    min-height: 40px !important;
+    font-size: 16px !important; /* Prevent zoom on iOS */
+    padding: 8px 12px !important;
+  }
+  
+  /* Modal buttons - touch friendly */
+  .modal-content button {
+    min-height: 40px !important;
+    padding: 8px 14px !important;
+  }
+  
+  /* Scrollbar - Hide on mobile */
+  *::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  
+  *::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  
+  /* Text adjustments */
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.1rem; }
+  h4 { font-size: 1rem; }
+  p, span, label { font-size: 0.85rem; }
+  
+  /* Welcome screen mobile */
+  .welcome-screen {
+    padding: var(--spacing-sm);
+  }
+  
+  .welcome-card {
+    padding: var(--spacing-md);
+    max-width: 95%;
+  }
+}
+
+/* Extra small phones (max-width: 360px) */
+@media (max-width: 360px) {
+  html {
+    font-size: 12px;
+  }
+  
+  .menu-bar-container {
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+  
+  .waveform-section {
+    min-height: 80px;
+    max-height: 120px;
+  }
+  
+  .panel {
+    min-height: 70px;
+    max-height: 120px;
+    padding: 4px;
+  }
+  
+  .marker-timeline {
+    min-height: 50px;
+    max-height: 80px;
+  }
+
+  .mobile-panel.timeline-mobile-section .marker-timeline {
+    min-height: 225px !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  .neu-icon-btn {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .neu-play-btn {
+    width: 34px;
+    height: 34px;
+  }
+  
+  /* Playback buttons - keep visible on very small phones (≤360px) */
+  .playback-panel button {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .app-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .menu-bar-container {
+    width: 100%;
+    height: 2.5rem;
+    min-height: 2.5rem;
+  }
+  
+  .main-content {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .waveform-section {
+    flex: 1 1 60%;
+    min-width: 200px;
+    max-height: 50vh;
+  }
+  
+  .panels-section {
+    flex: 1 1 35%;
+    grid-template-columns: 1fr;
+    max-height: 50vh;
+  }
+  
+  .panel {
+    max-height: 45vh;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Remove hover effects on touch devices */
+  .panel:hover,
+  .waveform-section:hover {
+    transform: none;
+  }
+  
+  .neu-btn:hover,
+  .neu-icon-btn:hover,
+  .neu-play-btn:hover {
+    box-shadow: var(--neu-btn);
+  }
+  
+  .menu-bar-button:hover {
+    transform: none;
+  }
+  
+  /* Make tap targets larger */
+  button, .button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Active states instead of hover */
+  .neu-btn:active,
+  .neu-icon-btn:active,
+  .neu-play-btn:active {
+    box-shadow: var(--neu-btn-pressed);
+    transform: scale(0.95);
+  }
+  
+  /* Prevent accidental zoom on double-tap */
+  * {
+    touch-action: manipulation;
+  }
+  
+  /* Smooth scrolling for touch */
+  .main-content,
+  .menu-bar-container,
+  .panel {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+}
+
+/* Prevent text selection on interactive elements */
+button, .button, .neu-btn, .neu-icon-btn, .neu-play-btn, .neu-tab {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  touch-action: manipulation; /* Faster click response, no 300ms delay */
+}
+
+/* ====== MOBILE APP LAYOUT ====== */
+/* Fixed height distribution - NO SCROLLING on main container
+ * Total viewport = 100dvh
+ * Menu bar = 48px (includes safe area)
+ * Status bar = 24px
+ * Padding = 8px (4px top + 4px bottom)
+ * Gap between 4 elements = 3 * 4px = 12px
+ * Available content = 100dvh - 48px - 24px - 8px - 12px = 100dvh - 92px
+ * 
+ * Distribution (controls moved to menu dropdown):
+ * - Waveform: 20% (~80px) - scrollable horizontally with pinch-to-zoom
+ * - Timeline: flex-grow (majority) - for stacked markers
+ * - Markers: fixed height for ~2.5 markers visible (~140px)
+ * - Playback: 70px fixed
+ */
+
+/* Mobile layout container - fixed height so main-content can scroll (Edge, PWA, Safari) */
+.app-container.mobile-layout {
+  padding-top: 68px; /* Space for mobile menu */
+  padding-bottom: 28px; /* Space for status bar */
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Mobile main content - SCROLL CONTAINER (use scroll so Edge/PWA reliably show scroll) */
+.main-content.mobile-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  flex-basis: 0;
+  min-height: 0;
+  overflow-y: scroll !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  gap: 6px;
+  padding: 0 !important;
+}
+
+/* Mobile panels base */
+.mobile-panel {
+  background: var(--neu-bg-base);
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Waveform section on mobile – 50% taller for easier zoom (was 150–250px, now 225–375px) */
+.mobile-panel.waveform-mobile-section {
+  flex: 0 0 180px;
+  height: 180px;
+  min-height: 225px;
+  max-height: 375px;
+  padding: 5px 5px 0 5px;
+  margin: 0 !important;
+  overflow: hidden;
+  background: transparent;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Ensure waveform fills container properly - edge to edge */
+.mobile-panel.waveform-mobile-section .waveform-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Ensure waveform canvas fills its container completely */
+.mobile-panel.waveform-mobile-section canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* Timeline section on mobile – container 1.5× waveform height (150px → 225px), fluid: grows with content; no gap above (touches waveform) */
+.mobile-panel.timeline-mobile-section {
+  flex: 0 1 auto;
+  min-height: 225px;
+  max-height: none;
+  padding: 0 !important;
+  padding-left: 5px !important;
+  padding-right: 5px !important;
+  margin: -6px 0 0 0 !important; /* Pull up to remove space between waveform and timeline */
+  background: rgba(0, 102, 68, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Inner wrapper – same min-height so timeline isn’t cut off; grows with content */
+.mobile-panel.timeline-mobile-section > div {
+  flex: 1 0 auto;
+  min-height: 225px;
+  height: auto;
+  max-height: none;
+  width: 100% !important;
+  overflow: visible;
+}
+
+/* Timeline element inside container: allow growth, never cap (overrides inline and other media rules) */
+.mobile-panel.timeline-mobile-section .marker-timeline {
+  min-height: 225px !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Marker panel section on mobile/tablet – scrollable list (Edge/PWA: use scroll + touch) */
+.mobile-panel.marker-panel-section {
+  flex: 0 1 auto;
+  min-height: 240px;
+  padding: 6px !important;
+  margin: 4px 6px !important;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  border-radius: 8px !important;
+  box-shadow: var(--neu-flat) !important;
+}
+
+/* Marker panel scrollbar styling */
+.mobile-panel.marker-panel-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mobile-panel.marker-panel-section::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.mobile-panel.marker-panel-section::-webkit-scrollbar-thumb {
+  background: rgba(0, 102, 68, 0.4);
+  border-radius: 3px;
+}
+
+.mobile-panel.marker-panel-section::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 102, 68, 0.6);
+}
+
+/* Playback section on mobile - min-height only, page can overflow so buttons always visible */
+.mobile-panel.playback-section {
+  flex: 0 0 auto !important;
+  min-height: 150px !important;
+  padding: 10px 12px !important;
+  overflow: visible !important;
+  margin: 4px 6px 0 6px !important;
+  border-radius: 10px !important;
+  box-shadow: var(--neu-flat) !important;
+}
+
+/* Larger playback buttons on mobile - visible on all phone sizes */
+.mobile-panel.playback-section button {
+  min-width: 52px !important;
+  min-height: 52px !important;
+  max-width: 64px !important;
+  max-height: 64px !important;
+  padding: 10px !important;
+  flex-shrink: 0 !important;
+}
+
+.mobile-panel.playback-section button svg {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+/* Ensure playback panel content is visible */
+.mobile-panel.playback-section > div {
+  height: 100% !important;
+  overflow: visible !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* ====== TABLET MODE (769px–1024px): same stacking as mobile, scaled up ====== */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .app-container.mobile-layout {
+    padding-top: 80px; /* Slightly more space for menu on tablet */
+    padding-bottom: 32px;
+  }
+
+  .main-content.mobile-content {
+    gap: 12px;
+    padding: 0 8px !important;
+  }
+
+  /* Waveform section – scaled up from mobile */
+  /* Waveform on tablet – 50% taller (was 200–320px, now 300–480px) for easier zoom */
+  .mobile-panel.waveform-mobile-section {
+    flex: 0 0 auto;
+    min-height: 300px !important;
+    max-height: 480px !important;
+    padding: 8px 8px 0 8px !important;
+    margin: 0 8px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Timeline section – 1.5× waveform height (200px → 300px), fluid (grows with content); no gap above (touches waveform) */
+  .mobile-panel.timeline-mobile-section {
+    flex: 0 1 auto;
+    min-height: 300px !important;
+    max-height: none !important;
+    padding: 8px 10px !important;
+    margin: -12px 8px 0 8px !important; /* Pull up to remove space between waveform and timeline */
+    border-radius: 12px !important;
+    overflow: visible;
+  }
+
+  .mobile-panel.timeline-mobile-section > div {
+    min-height: 300px !important;
+    max-height: none !important;
+    height: auto;
+    overflow: visible;
+  }
+
+  .mobile-panel.timeline-mobile-section .marker-timeline {
+    min-height: 300px !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Marker panel section – scaled up, fluid (grows with marker list) */
+  .mobile-panel.marker-panel-section {
+    flex: 0 1 auto;
+    min-height: 280px !important;
+    padding: 10px 12px !important;
+    margin: 6px 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .mobile-panel.marker-panel-section::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .mobile-panel.marker-panel-section button {
+    min-width: 48px !important;
+    min-height: 48px !important;
+    font-size: 1rem !important;
+    padding: 10px 14px !important;
+  }
+
+  .mobile-panel.marker-panel-section svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  /* Playback section – scaled up */
+  .mobile-panel.playback-section {
+    min-height: 200px !important;
+    padding: 14px 18px !important;
+    margin: 6px 10px 0 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .mobile-panel.playback-section button {
+    min-width: 60px !important;
+    min-height: 60px !important;
+    max-width: 76px !important;
+    max-height: 76px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .mobile-panel.playback-section button svg {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .mobile-panel.playback-section .playback-panel {
+    padding: 8px 10px !important;
+  }
+
+  .mobile-panel.playback-section .playback-panel > div:last-child {
+    gap: 12px !important;
+  }
+
+  .mobile-panel.playback-section .time-display {
+    font-size: 1rem !important;
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .app-container.mobile-layout {
+    padding-top: calc(68px + env(safe-area-inset-top));
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  .main-content.mobile-content {
+    min-height: 0;
+    flex: 1 1 0;
+  }
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  /* Waveform on mobile - fills container height */
+  .waveform-container {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  
+  .waveform-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+  
+  /* Marker timeline – default fill; timeline-mobile-section overrides below so it can grow */
+  .marker-timeline {
+    min-height: 100% !important;
+    max-height: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+  }
+
+  /* Inside timeline section: allow growth so markers aren’t cut off (overrides fill above) */
+  .mobile-panel.timeline-mobile-section .marker-timeline {
+    min-height: 225px !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  .marker-timeline svg {
+    min-height: 100%;
+    height: 100%;
+    width: 100%;
+  }
+  
+  /* Touch-friendly marker creation */
+  .marker-timeline rect {
+    cursor: pointer;
+  }
+  
+  /* Playback panel mobile - enough height for buttons, content can overflow */
+  .mobile-panel.playback-section .playback-panel {
+    min-height: 0 !important;
+    padding: 6px 8px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+  
+  /* Transport controls - horizontal row, center in panel */
+  .mobile-panel.playback-section .playback-panel > div:last-child {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+    flex: 1 1 auto;
+  }
+  
+  /* Button sizes for mobile - larger so visible on small phones */
+  .mobile-panel.playback-section button {
+    min-width: 50px !important;
+    min-height: 50px !important;
+    max-width: 60px !important;
+    max-height: 60px !important;
+    padding: 8px !important;
+    flex-shrink: 0 !important;
+  }
+  
+  /* SVG icons in playback buttons - larger */
+  .mobile-panel.playback-section button svg {
+    width: 28px !important;
+    height: 28px !important;
+  }
+  
+  /* Time display - readable size */
+  .mobile-panel.playback-section .time-display {
+    font-size: 0.9rem !important;
+  }
+}
+
+/* ====== MOBILE VISIBILITY IMPROVEMENTS ====== */
+@media (max-width: 768px) {
+  /* Scroll container – use scroll (not auto) so Edge/PWA reliably allow scrolling */
+  .app-container.mobile-layout {
+    overflow: hidden !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+  }
+  
+  .main-content.mobile-content {
+    overflow-y: scroll !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex: 1 1 0 !important;
+    flex-basis: 0 !important;
+    min-height: 0 !important;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+  }
+  
+  /* Increase base font size on mobile */
+  html {
+    font-size: 18px !important;
+  }
+  
+  body {
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+  }
+  
+  /* Larger playback buttons - always visible on small phones */
+  .mobile-panel.playback-section button {
+    min-width: 56px !important;
+    min-height: 56px !important;
+    max-width: 68px !important;
+    max-height: 68px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+  }
+  
+  .mobile-panel.playback-section button svg {
+    width: 30px !important;
+    height: 30px !important;
+  }
+  
+  /* Playback panel - min-height only, no max; page can scroll so buttons always fit */
+  .mobile-panel.playback-section {
+    flex: 0 0 auto !important;
+    min-height: 160px !important;
+    padding: 12px 14px !important;
+  }
+  
+  /* Marker panel – scrollable; min height so list is usable, no low max so page scroll can show it */
+  .mobile-panel.marker-panel-section {
+    min-height: 180px !important;
+    max-height: none !important;
+    overflow-y: scroll !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y;
+  }
+  
+  .mobile-panel.marker-panel-section button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    font-size: 0.9rem !important;
+  }
+  
+  .mobile-panel.marker-panel-section svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+  
+  /* Larger text in marker items */
+  .mobile-panel.marker-panel-section span,
+  .mobile-panel.marker-panel-section p,
+  .mobile-panel.marker-panel-section label {
+    font-size: 0.95rem !important;
+  }
+  
+  /* Global text size increases */
+  span, p, label, div {
+    font-size: inherit;
+  }
+  
+  button {
+    font-size: 0.9rem !important;
+  }
+  
+  input, select, textarea {
+    font-size: 1rem !important;
+    min-height: 44px !important;
+  }
+}
+
+/* ====== END MOBILE RESPONSIVE DESIGN ====== */

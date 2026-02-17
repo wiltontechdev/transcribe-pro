@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Transcribe Pro" />
+    <style>
+      /* Apply rounded corners to favicon using mask */
+      link[rel="icon"]::before {
+        content: '';
+        display: block;
+        width: 16px;
+        height: 16px;
+        border-radius: 20%;
+        background: url('/logo.png') no-repeat center;
+        background-size: cover;
+        mask: url('/logo.png') no-repeat center;
+        -webkit-mask: url('/logo.png') no-repeat center;
+        mask-size: cover;
+        -webkit-mask-size: cover;
+      }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Edu+SA+Beginner:wght@400;500;600;700&family=Gochi+Hand&display=swap" rel="stylesheet">
+    <title>Transcription Pro</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

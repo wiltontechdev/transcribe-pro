@@ -1,0 +1,143 @@
+{
+  "name": "transcription-pro",
+  "version": "1.0.0",
+  "description": "A transcription application built with Electron, React, and TypeScript",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:react\" \"wait-on http://localhost:3000 && npm run dev:electron\"",
+    "dev:react": "vite",
+    "dev:electron": "cross-env NODE_ENV=development npm run build:electron && electron .",
+    "dev:debug": "concurrently \"npm run dev:react\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development OPEN_DEVTOOLS=1 npm run build:electron && electron .\"",
+    "build": "npm run build:electron && vite build",
+    "build:electron": "tsc -p tsconfig.main.json",
+    "build:web": "vite build",
+    "preview": "vite preview",
+    "clean": "powershell -ExecutionPolicy Bypass -File ./clean-release.ps1 || rimraf release",
+    "dist": "npm run clean && npm run build && electron-builder",
+    "generate-icon": "node scripts/generate-win-icon.js",
+    "dist:win": "npm run generate-icon && npm run clean && npm run build && electron-builder --win",
+    "dist:win:portable": "npm run clean && npm run build && electron-builder --win portable",
+    "dist:mac": "npm run clean && npm run build && electron-builder --mac",
+    "dist:linux": "npm run clean && npm run build && electron-builder --linux",
+    "publish": "npm run clean && npm run build && electron-builder --publish always",
+    "publish:win": "npm run clean && npm run build && electron-builder --win --publish always",
+    "publish:mac": "npm run clean && npm run build && electron-builder --mac --publish always",
+    "publish:linux": "npm run clean && npm run build && electron-builder --linux --publish always"
+  },
+  "build": {
+    "appId": "com.transcribepro.app",
+    "productName": "TranscribePro",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/ffmpeg-static",
+        "to": "ffmpeg-static",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "public/logo.png",
+        "to": "public/logo.png"
+      }
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "shmawilton",
+      "repo": "Transcribe-pro",
+      "releaseType": "release"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/logo.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "public/icon.icns",
+      "category": "public.app-category.music"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "public/logo.png",
+      "category": "Audio"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "keywords": [
+    "electron",
+    "react",
+    "typescript",
+    "transcription"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.0.0",
+    "electron-builder": "^26.4.0",
+    "png-to-ico": "^3.0.1",
+    "postcss": "^8.4.32",
+    "rimraf": "^6.1.2",
+    "sharp": "^0.33.5",
+    "tailwindcss": "^3.3.6",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vite-plugin-pwa": "^1.2.0",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "@capacitor/cli": "^8.0.1",
+    "@capacitor/core": "^8.0.1",
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1",
+    "@types/fluent-ffmpeg": "^2.1.28",
+    "@types/howler": "^2.2.12",
+    "electron-updater": "^6.7.3",
+    "ffmpeg-static": "^5.3.0",
+    "firebase": "^12.8.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "howler": "^2.2.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "soundtouchjs": "^0.2.1",
+    "tone": "^14.7.77",
+    "zustand": "^4.4.7"
+  }
+}
