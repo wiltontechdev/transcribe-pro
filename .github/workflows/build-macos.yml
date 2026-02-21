@@ -29,14 +29,23 @@ jobs:
       # macOS build expects public/icon.icns; generate from logo.png on runner
       - name: Generate macOS app icon (icon.icns)
         run: |
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          if [ ! -f "public/logo.png" ]; then
+            echo "::error::public/logo.png not found. Ensure it is committed to the repo."
+            ls -la public/ 2>/dev/null || true
+            exit 1
+          fi
           mkdir -p icon.iconset
-          SRC="public/logo.png"
+          SRC="$GITHUB_WORKSPACE/public/logo.png"
+          ICONSET="$GITHUB_WORKSPACE/icon.iconset"
           for size in 16 32 64 128 256 512; do
-            sips -z $size $size "$SRC" --out "icon.iconset/icon_${size}x${size}.png"
-            sips -z $((size*2)) $((size*2)) "$SRC" --out "icon.iconset/icon_${size}x${size}@2x.png"
+            double=$((size * 2))
+            sips -z $size $size "$SRC" --out "$ICONSET/icon_${size}x${size}.png"
+            sips -z $double $double "$SRC" --out "$ICONSET/icon_${size}x${size}@2x.png"
           done
-          iconutil -c icns icon.iconset -o public/icon.icns
-          rm -rf icon.iconset
+          iconutil -c icns "$ICONSET" -o "$GITHUB_WORKSPACE/public/icon.icns"
+          rm -rf "$ICONSET"
 
       # Use rimraf for clean on macOS (avoid PowerShell)
       - name: Clean release folder
