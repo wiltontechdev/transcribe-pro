@@ -105,6 +105,37 @@ Add to `package.json`:
 - **Audio not working**: User interaction required (tap) to start AudioContext on mobile
 - **File picker**: Uses system picker; storage permissions are in AndroidManifest
 
+## Build APK (Debug)
+
+**From Android Studio:**
+1. Build → Build Bundle(s) / APK(s) → Build APK(s)
+2. APK is created at `android/app/build/outputs/apk/debug/app-debug.apk`
+
+**From terminal:**
+```bash
+npm run android:apk
+```
+
+## Build APK (Release / Signed)
+
+1. Run `npm run cap:sync` to sync latest web build
+2. In Android Studio: Build → Generate Signed Bundle / APK
+3. Choose APK or Android App Bundle (AAB)
+4. Create or select a keystore
+5. Build
+
+Or from terminal: `cd android && ./gradlew assembleRelease` (requires signing config)
+
+## Change App Icon
+
+The app uses `public/logo.png` (Transcribe Pro logo). To regenerate Android icons:
+
+```bash
+npm run android:icons
+```
+
+This creates `assets/icon-only.png` and `icon-foreground.png` from `public/logo.png`, then runs `@capacitor/assets` to generate all Android launcher icons. Run after changing the logo.
+
 ## Publishing
 
 1. Build release: `npm run cap:sync` then in Android Studio: Build → Generate Signed Bundle / APK

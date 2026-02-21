@@ -105,11 +105,21 @@ export class AudioEngine {
   /**
    * Apply combined pitch: user pitch minus speed-induced pitch change.
    * This keeps perceived pitch constant when changing speed (audio normalization).
+   * When effective pitch is 0, bypass the effect (wet=0) to preserve original sound quality.
    */
   private applyPitchCompensation(): void {
     if (!this.pitchShift) return;
     const pitchFromSpeed = this.getPitchFromSpeed();
-    this.pitchShift.pitch = this.currentPitch - pitchFromSpeed;
+    const effectivePitch = this.currentPitch - pitchFromSpeed;
+
+    if (Math.abs(effectivePitch) < 0.05) {
+      // Bypass: no pitch shift needed - use dry signal to avoid distortion/echoes
+      this.pitchShift.wet.value = 0;
+      this.pitchShift.pitch = 0;
+    } else {
+      this.pitchShift.wet.value = 1;
+      this.pitchShift.pitch = effectivePitch;
+    }
   }
 
   /**
@@ -118,10 +128,10 @@ export class AudioEngine {
    */
   private initializeToneNodes(): void {
     try {
-      // Create PitchShift node - larger windowSize reduces distortion on pitch change
+      // Create PitchShift node - larger windowSize reduces distortion/echoes (0.03-0.1 nominal; 0.3 = smoother)
       this.pitchShift = new Tone.PitchShift({
         pitch: 0,
-        windowSize: 0.2,
+        windowSize: 0.3,
         delayTime: 0,
         feedback: 0
       });

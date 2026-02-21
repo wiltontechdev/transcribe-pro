@@ -398,7 +398,12 @@ export class HowlerAudioEngine {
     useAppStore.getState().setPitch(targetPitch);
     this.targetPitch = targetPitch;
     if (!PITCH_ENABLED_IN_HOWLER) {
-      emitPitchStatus({ isProcessing: false, targetPitch, progress: 100 });
+      // Electron: use FFmpeg for high-quality pitch (no Tone.js artifacts)
+      if (isElectron && window.electronAPI?.pitchShiftFile) {
+        this.processPitchChange(targetPitch);
+      } else {
+        emitPitchStatus({ isProcessing: false, targetPitch, progress: 100 });
+      }
       return;
     }
     

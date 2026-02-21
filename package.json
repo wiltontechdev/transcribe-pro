@@ -15,6 +15,7 @@
     "cap:sync": "npm run build && npx cap sync android",
     "android:open": "npx cap open android",
     "android:apk": "npm run build:android && cd android && .\\gradlew.bat assembleDebug",
+    "android:icons": "node scripts/prepare-android-icons.js && npx capacitor-assets generate --android",
     "preview": "vite preview",
     "clean": "powershell -ExecutionPolicy Bypass -File ./clean-release.ps1 || rimraf release",
     "dist": "npm run clean && npm run build && electron-builder",
@@ -55,8 +56,8 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "shmawilton",
-      "repo": "Transcribe-pro",
+      "owner": "wiltontechdev",
+      "repo": "transcribe-pro",
       "releaseType": "release"
     },
     "win": {
@@ -107,6 +108,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
