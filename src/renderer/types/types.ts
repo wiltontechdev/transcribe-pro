@@ -38,7 +38,7 @@ export interface UIState {
 }
 
 export interface GlobalControls {
-  pitch: number; // -12 to +12 semitones
+  pitch: number; // -2 to +2 semitones
   volume: number; // 0 to 1 (or dB: -60 to 6)
   playbackRate: number; // 0.5 to 2.0
   isMuted: boolean; // mute state
@@ -71,7 +71,6 @@ export interface RecentProject {
   lastOpened: string;
   audioFileName?: string;
 }
-
 
 
 

@@ -73,13 +73,13 @@ const MobileControlsPanel: React.FC = () => {
   // Pitch handlers - use audio engine (same as desktop)
   const handlePitchUp = () => {
     if (!isAudioLoaded || isPitchProcessing) return;
-    const newPitch = Math.min(Math.round((pitch + 0.1) * 10) / 10, 2);
+    const newPitch = Math.min(Math.round((pitch + 0.01) * 100) / 100, 2);
     setAudioPitch(newPitch);
   };
   
   const handlePitchDown = () => {
     if (!isAudioLoaded || isPitchProcessing) return;
-    const newPitch = Math.max(Math.round((pitch - 0.1) * 10) / 10, -2);
+    const newPitch = Math.max(Math.round((pitch - 0.01) * 100) / 100, -2);
     setAudioPitch(newPitch);
   };
   
@@ -90,7 +90,7 @@ const MobileControlsPanel: React.FC = () => {
   
   // Format zoom as multiplier (e.g., "5.0x") instead of misleading percentage
   const zoomDisplay = zoomLevel >= 10 ? `${Math.round(zoomLevel)}x` : `${zoomLevel.toFixed(1)}x`;
-  const pitchDisplay = isPitchProcessing ? '...' : (pitch > 0 ? `+${pitch.toFixed(1)}` : pitch.toFixed(1));
+  const pitchDisplay = isPitchProcessing ? '...' : (pitch > 0 ? `+${pitch.toFixed(2)}` : pitch.toFixed(2));
   
   const btnStyle = (disabled: boolean = false) => ({
     width: '36px',
@@ -186,7 +186,7 @@ const MobileControlsPanel: React.FC = () => {
           onClick={handlePitchDown}
           disabled={!isAudioLoaded || isPitchProcessing || pitch <= -2}
           style={btnStyle(!isAudioLoaded || isPitchProcessing || pitch <= -2)}
-          title="Lower Pitch"
+          title="Lower pitch by 1% (0.01 semitone)"
         >
           ↓
         </button>
@@ -197,7 +197,7 @@ const MobileControlsPanel: React.FC = () => {
           onClick={handlePitchUp}
           disabled={!isAudioLoaded || isPitchProcessing || pitch >= 2}
           style={btnStyle(!isAudioLoaded || isPitchProcessing || pitch >= 2)}
-          title="Raise Pitch"
+          title="Raise pitch by 1% (0.01 semitone)"
         >
           ↑
         </button>

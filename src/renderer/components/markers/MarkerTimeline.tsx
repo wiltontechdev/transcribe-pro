@@ -6,6 +6,8 @@ import { useAppStore } from '../../store/store';
 import { Marker } from '../../types/types';
 import { MarkerManager } from './MarkerManager';
 import { useAudioEngine } from '../audio/useAudioEngine';
+import { useSmoothViewport } from '../../hooks/useSmoothViewport';
+import { MOBILE_TABLET_DEFAULT_ZOOM } from '../../utils/defaultZoom';
 
 // ===== Constants for marker layout =====
 const MARKER_HEIGHT = 28; // pixels - increased for better visibility
@@ -71,6 +73,7 @@ export function MarkerTimeline() {
   const setZoomLevel = useAppStore((state) => state.setZoomLevel);
   const zoomLevel = useAppStore((state) => state.ui.zoomLevel) || 1;
   const currentTime = useAppStore((state) => state.audio.currentTime) || 0;
+  const { animateZoom } = useSmoothViewport();
   
   // Pinch-to-zoom and single-finger scroll refs
   const lastTouchDistanceRef = useRef<number | null>(null);
@@ -78,8 +81,7 @@ export function MarkerTimeline() {
   // Single-finger horizontal scroll tracking
   const singleTouchStartRef = useRef<{ x: number; vpStart: number; vpEnd: number } | null>(null);
   const isSingleTouchScrollRef = useRef(false);
-  const DEFAULT_ZOOM = 5; // Show 1/5 (20%) of the audio
-  const MOBILE_DEFAULT_ZOOM = 5; // Same for mobile
+  const MOBILE_DEFAULT_ZOOM = MOBILE_TABLET_DEFAULT_ZOOM;
   
   // Clamp viewport values to current duration (handles case when new audio is shorter)
   // Also handles stale viewport values from previous audio and NaN values
@@ -255,9 +257,11 @@ export function MarkerTimeline() {
         const touch2 = e.touches[1];
         const newDistance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
         
-        const scale = newDistance / lastTouchDistanceRef.current;
+        const rawScale = newDistance / lastTouchDistanceRef.current;
+        // Amplify pinch for bigger zoom response (exponent 1.5 makes pinch feel more responsive)
+        const scale = Math.pow(rawScale, 1.5);
         
-        if (Math.abs(scale - 1) > 0.02) { // Threshold to avoid jitter
+        if (Math.abs(scale - 1) > 0.01) { // Threshold to avoid jitter
           const currentZoom = zoomLevelRefPinch.current || (isMobileRefPinch.current ? MOBILE_DEFAULT_ZOOM : 1);
           let newZoom = currentZoom * scale;
           
@@ -265,7 +269,7 @@ export function MarkerTimeline() {
           const minZoom = isMobileRefPinch.current ? MOBILE_DEFAULT_ZOOM : 1;
           newZoom = Math.max(minZoom, Math.min(50, newZoom));
           
-          if (Math.abs(newZoom - currentZoom) > 0.1) {
+          if (Math.abs(newZoom - currentZoom) > 0.05) {
             // Calculate new viewport centered on pinch point
             const centerTime = pinchCenterTimeRef.current ?? currentTimeRefPinch.current;
             const dur = durationRefPinch.current;
@@ -345,16 +349,42 @@ export function MarkerTimeline() {
     };
   }, [setViewport, setZoomLevel]);
   
-  // Two-finger horizontal scroll support (trackpad on Mac/Windows, mouse wheel horizontal)
+  // Two-finger horizontal scroll + trackpad/mouse wheel zoom (desktop/larger devices)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     
     const handleWheel = (e: WheelEvent) => {
-      // Handle horizontal scrolling (two-finger swipe on trackpad or shift+scroll)
       const deltaX = e.deltaX || (e.shiftKey ? e.deltaY : 0);
+      const deltaY = e.deltaY;
+      const isBiggerDevice = typeof window !== 'undefined' && window.innerWidth > 768;
       
-      if (Math.abs(deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+      // Zoom: Ctrl+scroll or trackpad pinch (ctrlKey set by browser for pinch) on larger devices
+      if (isBiggerDevice && (e.ctrlKey || e.metaKey) && Math.abs(deltaY) > 0) {
+        e.preventDefault();
+        const dur = durationRefPinch.current;
+        if (dur <= 0) return;
+        
+        const currentZoom = zoomLevelRefPinch.current || 1;
+        const zoomFactor = deltaY > 0 ? 1 / 1.6 : 1.6;
+        let newZoom = currentZoom * zoomFactor;
+        newZoom = Math.max(1, Math.min(50, newZoom));
+        
+        if (Math.abs(newZoom - currentZoom) < 0.01) return;
+        
+        // Zoom centered on cursor position
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const vpStart = viewportStartRefPinch.current;
+        const visibleDur = visibleDurationRefPinch.current > 0 ? visibleDurationRefPinch.current : dur;
+        const centerTime = vpStart + (x / rect.width) * visibleDur;
+        
+        animateZoom(newZoom, centerTime, { duration: 150, easing: 'easeOutCubic' });
+        return;
+      }
+      
+      // Horizontal scrolling (two-finger swipe on trackpad or shift+scroll)
+      if (Math.abs(deltaX) > Math.abs(deltaY) || e.shiftKey) {
         e.preventDefault();
         
         const dur = durationRefPinch.current;
@@ -391,7 +421,7 @@ export function MarkerTimeline() {
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [setViewport]);
+  }, [setViewport, animateZoom]);
   
   // Dummy handlers for React synthetic events (pinch handled by native listeners above)
   const handleTimelineTouchStart = useCallback((_e: React.TouchEvent) => {

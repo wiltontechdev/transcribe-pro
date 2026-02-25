@@ -4,6 +4,7 @@
 
 import * as Tone from 'tone';
 import { useAppStore } from '../../store/store';
+import { getDefaultZoomLevel } from '../../utils/defaultZoom';
 
 /**
  * Supported audio file formats
@@ -112,7 +113,7 @@ export class AudioEngine {
     const pitchFromSpeed = this.getPitchFromSpeed();
     const effectivePitch = this.currentPitch - pitchFromSpeed;
 
-    if (Math.abs(effectivePitch) < 0.05) {
+    if (Math.abs(effectivePitch) < 0.005) {
       // Bypass: no pitch shift needed - use dry signal to avoid distortion/echoes
       this.pitchShift.wet.value = 0;
       this.pitchShift.pitch = 0;
@@ -285,8 +286,8 @@ export class AudioEngine {
       useAppStore.getState().setAudioBuffer(decodedBuffer);
       useAppStore.getState().setDuration(finalDuration);
       
-      // Reset viewport to show first 20% of audio (zoom level 5)
-      const DEFAULT_ZOOM = 5;
+      // Reset viewport to default zoom for current device class
+      const DEFAULT_ZOOM = getDefaultZoomLevel();
       useAppStore.getState().setViewport(0, finalDuration / DEFAULT_ZOOM);
       useAppStore.getState().setZoomLevel(DEFAULT_ZOOM);
 
@@ -569,7 +570,7 @@ export class AudioEngine {
       // Reset viewport to beginning (show first 20% of audio)
       const duration = this.getDuration();
       if (duration > 0) {
-        const DEFAULT_ZOOM_STOP = 5;
+        const DEFAULT_ZOOM_STOP = getDefaultZoomLevel();
         useAppStore.getState().setViewport(0, duration / DEFAULT_ZOOM_STOP);
         useAppStore.getState().setZoomLevel(DEFAULT_ZOOM_STOP);
       }
@@ -830,10 +831,6 @@ export class AudioEngine {
     this.loopStart = start;
     this.loopEnd = end;
     this.isLooping = true;
-
-      start, 
-      end, 
-      duration
   }
 
   /**
@@ -850,12 +847,12 @@ export class AudioEngine {
   /**
    * Set pitch shift in semitones - independent of speed
    * Limited to ±2 semitones for quality preservation
-   * Supports fractional values (e.g., 0.6, 1.3) for fine control
+   * Supports fine fractional values (0.01 semitone precision)
    * Does NOT interrupt playback - pitch changes smoothly during playback
    */
   public setPitch(semitones: number): void {
-    // Clamp to ±2 semitones, allow fractional values (round to 0.1 precision)
-    const clampedPitch = Math.max(-2, Math.min(2, Math.round(semitones * 10) / 10));
+    // Clamp to ±2 semitones, allow fractional values (round to 0.01 precision)
+    const clampedPitch = Math.max(-2, Math.min(2, Math.round(semitones * 100) / 100));
     this.currentPitch = clampedPitch;
 
     if (!this.pitchShift) {

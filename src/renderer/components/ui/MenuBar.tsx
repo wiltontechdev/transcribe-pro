@@ -344,7 +344,7 @@ const MenuBar: React.FC = () => {
   const duration = useAppStore((state) => state.audio.duration);
   
   // Audio engine
-  const { loadFile, stop, unloadAudio, isAudioLoaded, resumeAudioContext, setPitch: setAudioPitch, resetPitch, getOriginalFilePath, seek, setLoop, disableLoop } = useAudioEngine();
+  const { loadFile, stop, unloadAudio, isAudioLoaded, resumeAudioContext, setPitch: setAudioPitch, resetPitch, getOriginalFilePath, seek, setLoop, disableLoop, setVolume: setAudioVolume } = useAudioEngine();
   
   // Project reset
   const resetProject = useAppStore((state) => state.resetProject);
@@ -402,9 +402,11 @@ const MenuBar: React.FC = () => {
   const storedPitch = useAppStore((state) => state.globalControls.pitch);
   const storePitch = useAppStore((state) => state.setPitch);
   
-  // Get mute state from store
+  // Get mute state and volume from store
   const isMuted = useAppStore((state) => state.globalControls.isMuted);
   const toggleMute = useAppStore((state) => state.toggleMute);
+  const volume = useAppStore((state) => state.globalControls.volume) ?? 6;
+  const setVolumeStore = useAppStore((state) => state.setVolume);
   
   // Marker navigation - only when a marker is active
   const selectedMarkerId = useAppStore((state) => state.ui.selectedMarkerId);
@@ -648,10 +650,11 @@ const MenuBar: React.FC = () => {
   // Smooth viewport animation hook
   const { animateZoom } = useSmoothViewport();
 
-  // Zoom handlers with smooth animations
+  // Zoom handlers with smooth animations (max 50x for fine detail)
+  const MAX_ZOOM = 50;
   const handleZoomIn = () => {
     if (duration <= 0) return;
-    const newZoom = Math.min(zoomLevel * 1.5, 8);
+    const newZoom = Math.min(zoomLevel * 1.5, MAX_ZOOM);
     animateZoom(newZoom, currentTime, { duration: 250, easing: 'easeOutCubic' });
     setOpenMenu(null);
   };
@@ -673,14 +676,14 @@ const MenuBar: React.FC = () => {
   
   // Simple zoom colors - white and green only
   const zoomColor = KENYAN_GREEN;
-  const zoomPercent = ((zoomLevel - 1) / 7) * 100;
+  const zoomPercent = ((zoomLevel - 1) / (MAX_ZOOM - 1)) * 100;
 
-  // Handle pitch change (continuous, supports fractional values like 0.6)
+  // Handle pitch change (continuous, 0.01 semitone precision)
   const handlePitchChange = (newPitch: number) => {
     if (!isAudioLoaded) return;
     
-    // Round to 0.1 precision for smooth continuous control
-    const clampedPitch = Math.max(-2, Math.min(2, Math.round(newPitch * 10) / 10));
+    // Round to 0.01 semitone precision (1% steps)
+    const clampedPitch = Math.max(-2, Math.min(2, Math.round(newPitch * 100) / 100));
     setPitch(clampedPitch);
     setAudioPitch(clampedPitch);
     storePitch(clampedPitch);
@@ -692,6 +695,22 @@ const MenuBar: React.FC = () => {
   // Handle mute toggle
   const handleMuteToggle = () => {
     toggleMute();
+  };
+
+  // Volume: -60 to +6 dB. Slider 0-100 maps to -60..6
+  const volumePercent = Math.round(((volume + 60) / 66) * 100);
+  const handleVolumeChange = (newDb: number) => {
+    const clamped = Math.max(-60, Math.min(6, newDb));
+    setVolumeStore(clamped);
+    setAudioVolume?.(clamped);
+  };
+  const handleVolumeSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const pct = Number(e.target.value);
+    const db = (pct / 100) * 66 - 60;
+    handleVolumeChange(db);
+  };
+  const handleVolumeStep = (step: number) => {
+    handleVolumeChange(volume + step);
   };
 
   // Get pitch color
@@ -906,14 +925,16 @@ const MenuBar: React.FC = () => {
         }
       } 
     },
+    {
+      id: 'theme',
+      icon: isLightMode ? MoonIcon : ThemeIcon,
+      label: isLightMode ? 'Dark Mode' : 'Light Mode',
+      action: () => toggleTheme(),
+    },
     { id: 'settings', icon: SettingsIcon, label: 'Settings', action: () => setIsSettingsModalOpen(true) },
   ];
 
-  // Theme-aware colors
-  const menuBg = isLightMode ? 'rgba(255, 255, 255, 0.95)' : 'rgba(26, 26, 26, 0.95)';
   const textColor = isLightMode ? '#1a1a1a' : '#ffffff';
-  const hoverBg = isLightMode ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.1)';
-  const borderColor = isLightMode ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)';
 
   return (
     <div 
@@ -924,11 +945,12 @@ const MenuBar: React.FC = () => {
         alignItems: 'center',
         height: '100%',
         width: '100%',
-        gap: '1rem',
-        justifyContent: 'space-between',
+        minWidth: 'max-content',
+        gap: '0.55rem',
+        justifyContent: 'flex-start',
         position: 'relative',
         zIndex: 999999,
-        padding: '0 2rem',
+        padding: '0 0.75rem',
         background: isLightMode 
           ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(250, 250, 250, 0.98) 100%)'
           : 'linear-gradient(135deg, rgba(15, 15, 15, 0.85) 0%, rgba(26, 26, 26, 0.9) 100%)',
@@ -941,11 +963,20 @@ const MenuBar: React.FC = () => {
           ? '0 4px 20px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
           : '0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
         fontFamily: HANDWRITTEN_FONT,
-        overflow: 'visible',
+        overflowX: 'auto',
+        overflowY: 'visible',
         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
-      {/* Left side - Connected Neumorphic Menu Tabs */}
+      {/* Left Cluster: Menu + Project identity */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.9rem',
+        flex: 1,
+        minWidth: 0,
+      }}>
+      {/* Menu tabs */}
       <div style={{ 
         display: 'flex',
         alignItems: 'center',
@@ -970,9 +1001,9 @@ const MenuBar: React.FC = () => {
                 ref={(el) => { menuButtonRefs.current[item.id] = el; }}
                 className="menu-bar-button"
                 style={{
-                  padding: '14px 20px',
+                  padding: '12px 14px',
                   height: '48px',
-                  minWidth: '100px',
+                  minWidth: '84px',
                   background: isOpen 
                     ? (isLightMode ? '#dde4f0' : '#161616')
                     : (isLightMode ? '#e4ebf5' : '#1e1e1e'),
@@ -1037,15 +1068,13 @@ const MenuBar: React.FC = () => {
         })}
       </div>
 
-      {/* Center - Project Name with enhanced styling */}
+      {/* Project name */}
       <div
-        className="mx-auto"
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
           flex: 1,
-          padding: '0 1.5rem',
+          padding: '0 0.35rem',
           minWidth: 0,
         }}
       >
@@ -1089,13 +1118,21 @@ const MenuBar: React.FC = () => {
           />
         </div>
       </div>
+      </div>
 
-      {/* Center-Right - Compact Zoom Controls */}
+      {/* Right Cluster: quick controls + utilities */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.65rem',
+        flexShrink: 0,
+        marginLeft: 'auto',
+      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
+      {/* Compact Zoom Controls */}
       <div
-          className="mx-auto flex items-center gap-0.5 flex-shrink-0"
           style={{
-            marginLeft: 'auto',
-            marginRight: 'auto',
+            display: 'flex',
             background: isLightMode
               ? 'rgba(255, 255, 255, 0.6)'
               : 'rgba(255, 255, 255, 0.08)',
@@ -1114,6 +1151,7 @@ const MenuBar: React.FC = () => {
             gap: '4px',
             height: '28px',
             alignItems: 'center',
+            flexShrink: 0,
           }}
       >
         {/* Compact Zoom Out */}
@@ -1202,26 +1240,26 @@ const MenuBar: React.FC = () => {
         {/* Compact Zoom In */}
         <button
           onClick={handleZoomIn}
-          disabled={zoomLevel >= 8}
+          disabled={zoomLevel >= MAX_ZOOM}
           style={{
             background: 'transparent',
             border: 'none',
-            color: zoomLevel >= 8
+            color: zoomLevel >= MAX_ZOOM
               ? (isLightMode ? '#ccc' : '#666')
               : (isLightMode ? '#1a1a1a' : '#FFFFFF'),
             padding: '2px',
             borderRadius: '6px',
-            cursor: zoomLevel >= 8 ? 'not-allowed' : 'pointer',
+            cursor: zoomLevel >= MAX_ZOOM ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             transition: 'all 0.2s ease',
-            opacity: zoomLevel >= 8 ? 0.3 : 1,
+            opacity: zoomLevel >= MAX_ZOOM ? 0.3 : 1,
             width: '20px',
             height: '20px',
           }}
           onMouseEnter={(e) => {
-            if (zoomLevel < 8) {
+            if (zoomLevel < MAX_ZOOM) {
               e.currentTarget.style.background = isLightMode 
                 ? 'rgba(0, 0, 0, 0.08)'
                 : 'rgba(255, 255, 255, 0.15)';
@@ -1241,11 +1279,11 @@ const MenuBar: React.FC = () => {
         </button>
       </div>
 
-      {/* Marker Navigation - Only visible when a marker is active (high-contrast, pronounced) */}
-      {selectedMarkerId && (() => {
-        const activeMarker = MarkerManager.getActiveMarker();
+      {/* Marker navigation */}
+      {(() => {
         const prevMarker = MarkerManager.getPreviousMarker();
         const nextMarker = MarkerManager.getNextMarker();
+        const hasMarkers = markers.length > 0;
         // Amber/gold accent - highly visible on both light and dark themes
         const MARKER_ACCENT = '#D97706';
         const handleMarkerNav = async (marker: { id: string } | null) => {
@@ -1262,28 +1300,32 @@ const MenuBar: React.FC = () => {
             disabled={disabled}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: '38px', height: '38px', padding: 0,
-              background: disabled ? (isLightMode ? '#e5e5e5' : '#333') : (isLightMode ? 'rgba(217, 119, 6, 0.2)' : 'rgba(217, 119, 6, 0.35)'),
+              width: '32px', height: '32px', padding: 0,
+              background: disabled
+                ? (isLightMode ? '#ededed' : '#2e2e2e')
+                : (isLightMode ? 'rgba(217, 119, 6, 0.16)' : 'rgba(217, 119, 6, 0.24)'),
               color: disabled ? (isLightMode ? '#999' : '#666') : MARKER_ACCENT,
-              border: `3px solid ${disabled ? (isLightMode ? '#ccc' : '#555') : MARKER_ACCENT}`,
-              borderRadius: '10px',
+              border: `1px solid ${disabled ? (isLightMode ? '#d4d4d4' : '#555') : `${MARKER_ACCENT}77`}`,
+              borderRadius: '8px',
               cursor: disabled ? 'not-allowed' : 'pointer',
               opacity: disabled ? 0.5 : 1,
-              boxShadow: disabled ? 'none' : (isLightMode ? '0 3px 12px rgba(217, 119, 6, 0.4)' : '0 3px 16px rgba(217, 119, 6, 0.5)'),
+              boxShadow: disabled ? 'none' : (isLightMode ? '0 2px 8px rgba(217, 119, 6, 0.25)' : '0 2px 10px rgba(217, 119, 6, 0.35)'),
               transition: 'all 0.2s ease',
             }}
             title={title}
             onMouseEnter={(e) => {
               if (!disabled) {
-                e.currentTarget.style.background = isLightMode ? 'rgba(217, 119, 6, 0.3)' : 'rgba(217, 119, 6, 0.5)';
-                e.currentTarget.style.transform = 'scale(1.12)';
-                e.currentTarget.style.boxShadow = isLightMode ? '0 4px 16px rgba(217, 119, 6, 0.5)' : '0 4px 20px rgba(217, 119, 6, 0.6)';
+                e.currentTarget.style.background = isLightMode ? 'rgba(217, 119, 6, 0.24)' : 'rgba(217, 119, 6, 0.34)';
+                e.currentTarget.style.transform = 'scale(1.06)';
+                e.currentTarget.style.boxShadow = isLightMode ? '0 3px 12px rgba(217, 119, 6, 0.35)' : '0 3px 14px rgba(217, 119, 6, 0.45)';
               }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = disabled ? (isLightMode ? '#e5e5e5' : '#333') : (isLightMode ? 'rgba(217, 119, 6, 0.2)' : 'rgba(217, 119, 6, 0.35)');
+              e.currentTarget.style.background = disabled
+                ? (isLightMode ? '#ededed' : '#2e2e2e')
+                : (isLightMode ? 'rgba(217, 119, 6, 0.16)' : 'rgba(217, 119, 6, 0.24)');
               e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = disabled ? 'none' : (isLightMode ? '0 3px 12px rgba(217, 119, 6, 0.4)' : '0 3px 16px rgba(217, 119, 6, 0.5)');
+              e.currentTarget.style.boxShadow = disabled ? 'none' : (isLightMode ? '0 2px 8px rgba(217, 119, 6, 0.25)' : '0 2px 10px rgba(217, 119, 6, 0.35)');
             }}
           >
             {icon}
@@ -1294,116 +1336,138 @@ const MenuBar: React.FC = () => {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '6px 14px',
-              background: isLightMode ? 'rgba(217, 119, 6, 0.15)' : 'rgba(217, 119, 6, 0.25)',
+              gap: '7px',
+              padding: '5px 10px',
+              background: isLightMode ? 'rgba(217, 119, 6, 0.1)' : 'rgba(217, 119, 6, 0.16)',
               borderRadius: '12px',
-              border: `3px solid ${MARKER_ACCENT}`,
-              boxShadow: isLightMode ? '0 4px 16px rgba(217, 119, 6, 0.3)' : '0 4px 20px rgba(217, 119, 6, 0.4)',
+              border: `1px solid ${MARKER_ACCENT}77`,
+              boxShadow: isLightMode ? '0 2px 8px rgba(217, 119, 6, 0.18)' : '0 2px 10px rgba(217, 119, 6, 0.24)',
             }}
             title="Marker navigation"
           >
-            <span style={{ fontSize: '13px', fontWeight: 700, color: MARKER_ACCENT, marginRight: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Markers</span>
-            {navBtn(
-              () => activeMarker && seek(activeMarker.start),
-              'Go to marker start',
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            )}
-            {navBtn(
-              () => activeMarker && seek(activeMarker.end),
-              'Go to marker end',
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            )}
+            <span style={{ fontSize: '11px', fontWeight: 700, color: MARKER_ACCENT, marginRight: '2px', textTransform: 'uppercase', letterSpacing: '0.45px' }}>
+              {hasMarkers ? (selectedMarkerId ? 'Active' : 'Markers') : 'No markers'}
+            </span>
             {navBtn(
               () => prevMarker && handleMarkerNav(prevMarker),
-              'Previous marker',
+              'Previous marker (Left/A)',
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
               !prevMarker
             )}
             {navBtn(
               () => nextMarker && handleMarkerNav(nextMarker),
-              'Next marker',
+              'Next marker (Right/D)',
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
               !nextMarker
             )}
           </div>
         );
       })()}
+      </div>
 
-      {/* Mute/Unmute Toggle Button */}
-      <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+      {/* Volume controls: mute + slider + step buttons */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '8px',
+        padding: '4px 10px',
+        borderRadius: '12px',
+        background: isLightMode ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.05)',
+      }}>
         <button
+          type="button"
           onClick={handleMuteToggle}
           disabled={!isAudioLoaded}
+          title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
           style={{
-            background: isMuted
-              ? (isLightMode 
-                  ? 'linear-gradient(135deg, rgba(222, 41, 16, 0.15), rgba(222, 41, 16, 0.08))'
-                  : 'linear-gradient(135deg, rgba(222, 41, 16, 0.25), rgba(222, 41, 16, 0.15))')
-              : (isLightMode
-                  ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 250, 250, 0.95))'
-                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.08))'),
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: isMuted
-              ? `2px solid ${KENYAN_RED}50`
-              : (isLightMode
-                  ? '1px solid rgba(0, 0, 0, 0.08)'
-                  : '1px solid rgba(255, 255, 255, 0.15)'),
-            color: isMuted 
-              ? (isLightMode ? KENYAN_RED : '#ff6b7a')
-              : (isLightMode ? '#1a1a1a' : '#ffffff'),
-            padding: '6px 12px',
-            borderRadius: '12px',
-            cursor: isAudioLoaded ? 'pointer' : 'not-allowed',
+            width: '28px',
+            height: '28px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '0.5rem',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            opacity: isAudioLoaded ? 1 : 0.4,
-            boxShadow: isMuted
-              ? `0 4px 16px ${KENYAN_RED}30, inset 0 1px 0 rgba(255, 255, 255, 0.1)`
-              : (isLightMode
-                  ? '0 4px 12px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
-                  : '0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)'),
-            position: 'relative',
-            overflow: 'hidden',
+            background: isMuted
+              ? (isLightMode ? 'rgba(222, 41, 16, 0.16)' : 'rgba(222, 41, 16, 0.28)')
+              : 'transparent',
+            border: isMuted
+              ? `1px solid ${KENYAN_RED}55`
+              : `1px solid ${isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.14)'}`,
+            borderRadius: '8px',
+            color: isMuted ? (isLightMode ? KENYAN_RED : '#ff8592') : (isLightMode ? '#666' : '#aaa'),
+            cursor: isAudioLoaded ? 'pointer' : 'not-allowed',
+            opacity: isAudioLoaded ? 1 : 0.45,
+            transition: 'all 0.2s ease',
           }}
-          onMouseEnter={(e) => {
-            if (isAudioLoaded) {
-              e.currentTarget.style.transform = 'translateY(-2px) scale(1.05)';
-              e.currentTarget.style.boxShadow = isMuted
-                ? `0 6px 24px ${KENYAN_RED}40, inset 0 1px 0 rgba(255, 255, 255, 0.15)`
-                : (isLightMode
-                    ? '0 6px 20px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
-                    : '0 6px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)');
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0) scale(1)';
-            e.currentTarget.style.boxShadow = isMuted
-              ? `0 4px 16px ${KENYAN_RED}30, inset 0 1px 0 rgba(255, 255, 255, 0.1)`
-              : (isLightMode
-                  ? '0 4px 12px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9)'
-                  : '0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)');
-          }}
-          title={isMuted ? 'Unmute' : 'Mute'}
         >
-          {/* Pulse effect when muted */}
-          {isMuted && (
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '14px',
-              background: `radial-gradient(circle, ${KENYAN_RED}20, transparent)`,
-              animation: 'pulseGlow 2s ease-in-out infinite',
-            }} />
-          )}
-          <span style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center' }}>
-            {isMuted ? <MuteIcon /> : <UnmuteIcon />}
-          </span>
+          {isMuted ? <MuteIcon /> : <UnmuteIcon />}
         </button>
+        <button
+          type="button"
+          onClick={() => handleVolumeStep(-7)}
+          disabled={!isAudioLoaded || volume <= -60}
+          title="Decrease volume"
+          style={{
+            width: '24px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '6px',
+            color: isLightMode ? '#666' : '#aaa',
+            cursor: isAudioLoaded && volume > -60 ? 'pointer' : 'not-allowed',
+            opacity: isAudioLoaded && volume > -60 ? 1 : 0.4,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/></svg>
+        </button>
+        <input
+          type="range"
+          className="volume-slider"
+          min={0}
+          max={100}
+          value={volumePercent}
+          onChange={handleVolumeSlider}
+          disabled={!isAudioLoaded}
+          title={`Volume ${volumePercent}%`}
+          style={{
+            width: '90px',
+            height: '8px',
+            WebkitAppearance: 'none',
+            appearance: 'none',
+            background: 'transparent',
+            cursor: isAudioLoaded ? 'pointer' : 'not-allowed',
+            opacity: isAudioLoaded ? 1 : 0.5,
+            '--volume-percent': `${volumePercent}%`,
+            '--volume-filled': KENYAN_GREEN,
+            '--volume-track': isLightMode ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)',
+          } as React.CSSProperties}
+        />
+        <button
+          type="button"
+          onClick={() => handleVolumeStep(7)}
+          disabled={!isAudioLoaded || volume >= 6}
+          title="Increase volume"
+          style={{
+            width: '24px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '6px',
+            color: isLightMode ? '#666' : '#aaa',
+            cursor: isAudioLoaded && volume < 6 ? 'pointer' : 'not-allowed',
+            opacity: isAudioLoaded && volume < 6 ? 1 : 0.4,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+        </button>
+        <span style={{ fontSize: '11px', fontWeight: 600, minWidth: '28px', color: isLightMode ? '#555' : '#999' }}>
+          {volumePercent}%
+        </span>
       </div>
 
       {/* Right side - Icon buttons with enhanced styling */}
@@ -1491,7 +1555,7 @@ const MenuBar: React.FC = () => {
                   position: 'absolute',
                   inset: 0,
                   borderRadius: '12px',
-                  background: `radial-gradient(circle at center, ${btn.id === 'settings' ? KENYAN_GREEN : KENYAN_RED}20, transparent)`,
+                  background: `radial-gradient(circle at center, ${(btn.id === 'settings' || btn.id === 'theme') ? KENYAN_GREEN : KENYAN_RED}20, transparent)`,
                   opacity: 0,
                   transition: 'opacity 0.3s ease',
                   pointerEvents: 'none',
@@ -1510,6 +1574,8 @@ const MenuBar: React.FC = () => {
             </button>
           );
         })}
+      </div>
+      </div>
       </div>
 
       {/* Portal-based Dropdown Menu */}
@@ -1851,6 +1917,55 @@ const MenuBar: React.FC = () => {
           background: ${isLightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};
           box-shadow: none;
           cursor: not-allowed;
+        }
+        
+        /* Volume Slider - Track & Thumb */
+        .volume-slider::-webkit-slider-runnable-track {
+          height: 8px;
+          border-radius: 4px;
+          background: linear-gradient(to right, var(--volume-filled) 0%, var(--volume-filled) var(--volume-percent), var(--volume-track) var(--volume-percent), var(--volume-track) 100%);
+          transition: background 0.15s ease;
+        }
+        .volume-slider::-moz-range-track {
+          height: 8px;
+          border-radius: 4px;
+          background: linear-gradient(to right, var(--volume-filled) 0%, var(--volume-filled) var(--volume-percent), var(--volume-track) var(--volume-percent), var(--volume-track) 100%);
+          transition: background 0.15s ease;
+        }
+        .volume-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, ${KENYAN_GREEN}, ${KENYAN_GREEN}CC);
+          cursor: pointer;
+          border: 2px solid ${isLightMode ? '#FFFFFF' : '#1a1a1a'};
+          box-shadow: 0 0 10px ${KENYAN_GREEN}80, 0 2px 6px rgba(0,0,0,0.3);
+          transition: all 0.2s ease;
+          margin-top: -5px;
+        }
+        .volume-slider::-webkit-slider-thumb:hover {
+          transform: scale(1.15);
+          box-shadow: 0 0 15px ${KENYAN_GREEN}, 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .volume-slider::-moz-range-thumb {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, ${KENYAN_GREEN}, ${KENYAN_GREEN}CC);
+          cursor: pointer;
+          border: 2px solid ${isLightMode ? '#FFFFFF' : '#1a1a1a'};
+          box-shadow: 0 0 10px ${KENYAN_GREEN}80, 0 2px 6px rgba(0,0,0,0.3);
+          transition: all 0.2s ease;
+        }
+        .volume-slider:disabled::-webkit-slider-thumb {
+          background: ${isLightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};
+          box-shadow: none;
+        }
+        .volume-slider:disabled::-moz-range-thumb {
+          background: ${isLightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};
+          box-shadow: none;
         }
         
         @keyframes fadeInScale {

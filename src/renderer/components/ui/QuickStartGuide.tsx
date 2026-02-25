@@ -59,7 +59,7 @@ const steps = [
   {
     id: 'markers',
     title: 'Add Markers',
-    description: 'Click on the timeline or press M to mark important sections',
+    description: 'Click on the timeline or press N to mark important sections',
     Icon: AddMarkerIcon,
     color: KENYAN_RED,
   },

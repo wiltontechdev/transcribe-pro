@@ -68,6 +68,8 @@ export interface ElectronAPI {
   getUpdateStatus: () => Promise<UpdateStatus>;
   openReleaseNotes: (url: string) => Promise<void>;
   onUpdateStatus: (callback: (event: UpdateStatusEvent) => void) => () => void;
+  onArrowKey?: (callback: (data: { key: string }) => void) => () => void;
+  setCaptureArrows?: (enabled: boolean) => void;
 }
 
 declare global {

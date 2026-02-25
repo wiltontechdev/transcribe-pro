@@ -40,10 +40,12 @@ const HelpModal: React.FC = () => {
           {[
             { key: 'Space', desc: 'Play/Pause audio playback' },
             { key: 'Escape', desc: 'Stop playback' },
-            { key: '←', desc: 'Skip backward 5 seconds' },
-            { key: '→', desc: 'Skip forward 5 seconds' },
-            { key: '↑', desc: 'Increase volume (+10%)' },
-            { key: '↓', desc: 'Decrease volume (-10%)' },
+            { key: 'N', desc: 'Add marker at current time' },
+            { key: 'M', desc: 'Mute / unmute' },
+            { key: 'L', desc: 'Toggle loop on active marker' },
+            { key: 'Left / Right or A / D', desc: 'Navigate markers' },
+            { key: 'Up', desc: 'Increase volume (+10%)' },
+            { key: 'Down', desc: 'Decrease volume (-10%)' },
           ].map((shortcut, idx) => (
             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
               <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.9rem' }}>{shortcut.desc}</span>
@@ -113,13 +115,13 @@ const HelpModal: React.FC = () => {
         {
           step: 3,
           title: 'Play and Listen',
-          description: 'Press Space to play/pause. Use arrow keys (← →) to skip 5 seconds. Adjust volume with ↑ ↓ keys or the volume control button.',
+          description: 'Press Space to play/pause. Use Left/Right or A/D to navigate markers, and Up/Down to adjust volume.',
           icon: '▶️',
         },
         {
           step: 4,
           title: 'Create Your First Marker',
-          description: 'While playing, press the "Create Marker" button in the Marker Panel when you reach the point you want to mark. Or click directly on the waveform timeline.',
+          description: 'While playing, press N to add a marker. Use L to toggle looping on the active marker, or click directly on the waveform timeline.',
           icon: '📍',
         },
         {
@@ -458,3 +460,4 @@ const HelpModal: React.FC = () => {
 };
 
 export default HelpModal;
+

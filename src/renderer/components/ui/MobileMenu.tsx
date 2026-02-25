@@ -10,6 +10,7 @@ import { getProjectLoader } from '../project/ProjectLoader';
 import { showToast } from './Toast';
 import { useSmoothViewport } from '../../hooks/useSmoothViewport';
 import { onPitchStatus } from '../audio/HowlerAudioEngine';
+import { getDefaultZoomLevel } from '../../utils/defaultZoom';
 
 // Kenyan colors
 const KENYAN_RED = '#DE2910';
@@ -32,7 +33,7 @@ const MobileMenu: React.FC = () => {
   const theme = useAppStore((state) => state.theme);
   const isLightMode = theme === 'light';
   const isAudioLoaded = useAppStore((state) => state.audio.isLoaded);
-  const zoomLevel = useAppStore((state) => state.ui.zoomLevel) ?? 5; // Same as desktop: read from ui.zoomLevel (default 5 on mobile)
+  const zoomLevel = useAppStore((state) => state.ui.zoomLevel) ?? getDefaultZoomLevel();
   const duration = useAppStore((state) => state.audio.duration) || 0;
   const currentTime = useAppStore((state) => state.audio.currentTime) || 0;
   const undo = useAppStore((state) => state.undo);
@@ -46,9 +47,11 @@ const MobileMenu: React.FC = () => {
   const playbackRate = useAppStore((state) => state.globalControls.playbackRate) || 1;
   const isMuted = useAppStore((state) => state.globalControls.isMuted) || false;
   const toggleMute = useAppStore((state) => state.toggleMute);
+  const volume = useAppStore((state) => state.globalControls.volume) ?? 6;
+  const setVolumeStore = useAppStore((state) => state.setVolume);
   
-  // Use audio engine's pitch method (same as desktop)
-  const { loadFile, resumeAudioContext, setPitch: setAudioPitch } = useAudioEngine();
+  // Use audio engine's pitch and volume methods (same as desktop)
+  const { loadFile, resumeAudioContext, setPitch: setAudioPitch, setVolume: setAudioVolume } = useAudioEngine();
   const { animateZoom } = useSmoothViewport();
   
   // Pitch processing status
@@ -168,17 +171,17 @@ const MobileMenu: React.FC = () => {
     animateZoom(MIN_ZOOM, undefined, { duration: 300, easing: 'easeOutCubic' });
   };
   
-  // Pitch handlers - matching desktop behavior (±2 semitones range, 0.1 step)
+  // Pitch handlers - matching desktop behavior (±2 semitones range, 0.01 step)
   // Uses audio engine's setPitch (same as desktop for proper audio processing)
   const handlePitchUp = () => {
     if (!isAudioLoaded || isPitchProcessing) return;
-    const newPitch = Math.min(Math.round((pitch + 0.1) * 10) / 10, 2);
+    const newPitch = Math.min(Math.round((pitch + 0.01) * 100) / 100, 2);
     setAudioPitch(newPitch); // Use audio engine's setPitch
   };
   
   const handlePitchDown = () => {
     if (!isAudioLoaded || isPitchProcessing) return;
-    const newPitch = Math.max(Math.round((pitch - 0.1) * 10) / 10, -2);
+    const newPitch = Math.max(Math.round((pitch - 0.01) * 100) / 100, -2);
     setAudioPitch(newPitch); // Use audio engine's setPitch
   };
   
@@ -191,6 +194,22 @@ const MobileMenu: React.FC = () => {
   const handleToggleMute = () => {
     if (!isAudioLoaded) return;
     toggleMute();
+  };
+
+  // Volume: -60 to +6 dB. Slider 0-100 maps to -60..6
+  const volumePercent = Math.round(((volume + 60) / 66) * 100);
+  const handleVolumeChange = (newDb: number) => {
+    const clamped = Math.max(-60, Math.min(6, newDb));
+    setVolumeStore(clamped);
+    setAudioVolume?.(clamped);
+  };
+  const handleVolumeSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const pct = Number(e.target.value);
+    const db = (pct / 100) * 66 - 60;
+    handleVolumeChange(db);
+  };
+  const handleVolumeStep = (step: number) => {
+    handleVolumeChange(volume + step);
   };
   
   // Format pitch display (100% = 1 semitone) - matches GlobalControlsPanel "Original" for 0
@@ -209,8 +228,8 @@ const MobileMenu: React.FC = () => {
       store.setVolume(6);
       store.setPlaybackRate(1);
       if (store.globalControls.isMuted) store.toggleMute();
-      // Start with 20% view (zoom 5) on all devices
-      store.setZoomLevel(5);
+      // Start with default zoom for current device class
+      store.setZoomLevel(getDefaultZoomLevel());
       getProjectSaver().setCurrentProjectId(null);
 
       await resumeAudioContext();
@@ -610,7 +629,7 @@ const MobileMenu: React.FC = () => {
                   onClick={handlePitchDown}
                   disabled={!isAudioLoaded || isPitchProcessing || pitch <= -2}
                   style={btnStyle(false, !isAudioLoaded || isPitchProcessing || pitch <= -2)}
-                  title="Lower pitch"
+                  title="Lower pitch by 1% (0.01 semitone)"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 5v14" />
@@ -631,7 +650,7 @@ const MobileMenu: React.FC = () => {
                   onClick={handlePitchUp}
                   disabled={!isAudioLoaded || isPitchProcessing || pitch >= 2}
                   style={btnStyle(false, !isAudioLoaded || isPitchProcessing || pitch >= 2)}
-                  title="Raise pitch"
+                  title="Raise pitch by 1% (0.01 semitone)"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 19V5" />
@@ -652,6 +671,67 @@ const MobileMenu: React.FC = () => {
                 >
                   Reset
                 </button>
+              </div>
+            </div>
+            
+            {/* Volume Control - Slider + Up/Down */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              padding: '10px 14px',
+              gap: '10px',
+              flexWrap: 'wrap',
+            }}>
+              <span style={{ fontSize: '15px', color: textColor, fontWeight: 500 }}>Volume</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => handleVolumeStep(-7)}
+                  disabled={!isAudioLoaded || volume <= -60}
+                  style={btnStyle(false, !isAudioLoaded || volume <= -60)}
+                  title="Decrease volume"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 5v14" /><path d="M19 12l-7 7-7-7" />
+                  </svg>
+                </button>
+                <input
+                  type="range"
+                  className="volume-slider"
+                  min={0}
+                  max={100}
+                  value={volumePercent}
+                  onChange={handleVolumeSlider}
+                  disabled={!isAudioLoaded}
+                  style={{
+                    flex: 1,
+                    minWidth: 80,
+                    height: '10px',
+                    WebkitAppearance: 'none',
+                    appearance: 'none',
+                    background: 'transparent',
+                    cursor: isAudioLoaded ? 'pointer' : 'not-allowed',
+                    opacity: isAudioLoaded ? 1 : 0.5,
+                    '--volume-percent': `${volumePercent}%`,
+                    '--volume-filled': KENYAN_GREEN,
+                    '--volume-track': isLightMode ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)',
+                  } as React.CSSProperties}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleVolumeStep(7)}
+                  disabled={!isAudioLoaded || volume >= 6}
+                  style={btnStyle(false, !isAudioLoaded || volume >= 6)}
+                  title="Increase volume"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M12 19V5" /><path d="M5 12l7-7 7 7" />
+                  </svg>
+                </button>
+                <span style={{ fontSize: '14px', fontWeight: 600, minWidth: 36, color: textColor }}>
+                  {volumePercent}%
+                </span>
               </div>
             </div>
             
@@ -1016,6 +1096,54 @@ const MobileMenu: React.FC = () => {
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        /* Volume Slider - Track & Thumb */
+        .volume-slider::-webkit-slider-runnable-track {
+          height: 10px;
+          border-radius: 5px;
+          background: linear-gradient(to right, var(--volume-filled) 0%, var(--volume-filled) var(--volume-percent), var(--volume-track) var(--volume-percent), var(--volume-track) 100%);
+          transition: background 0.15s ease;
+        }
+        .volume-slider::-moz-range-track {
+          height: 10px;
+          border-radius: 5px;
+          background: linear-gradient(to right, var(--volume-filled) 0%, var(--volume-filled) var(--volume-percent), var(--volume-track) var(--volume-percent), var(--volume-track) 100%);
+          transition: background 0.15s ease;
+        }
+        .volume-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, ${KENYAN_GREEN}, ${KENYAN_GREEN}CC);
+          cursor: pointer;
+          border: 2px solid ${isLightMode ? '#FFFFFF' : '#1a1a1a'};
+          box-shadow: 0 0 10px ${KENYAN_GREEN}80, 0 2px 6px rgba(0,0,0,0.3);
+          transition: all 0.2s ease;
+          margin-top: -6px;
+        }
+        .volume-slider::-webkit-slider-thumb:hover {
+          transform: scale(1.12);
+          box-shadow: 0 0 15px ${KENYAN_GREEN}, 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .volume-slider::-moz-range-thumb {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, ${KENYAN_GREEN}, ${KENYAN_GREEN}CC);
+          cursor: pointer;
+          border: 2px solid ${isLightMode ? '#FFFFFF' : '#1a1a1a'};
+          box-shadow: 0 0 10px ${KENYAN_GREEN}80, 0 2px 6px rgba(0,0,0,0.3);
+          transition: all 0.2s ease;
+        }
+        .volume-slider:disabled::-webkit-slider-thumb {
+          background: ${isLightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};
+          box-shadow: none;
+        }
+        .volume-slider:disabled::-moz-range-thumb {
+          background: ${isLightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};
+          box-shadow: none;
         }
       `}</style>
     </div>

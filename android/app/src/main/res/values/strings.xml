@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Transcription Pro</string>
+    <string name="title_activity_main">Transcription Pro</string>
+    <string name="package_name">com.transcribepro.app</string>
+    <string name="custom_url_scheme">com.transcribepro.app</string>
+</resources>

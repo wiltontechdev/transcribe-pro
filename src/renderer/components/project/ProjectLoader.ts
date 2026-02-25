@@ -4,6 +4,7 @@
 import { useAppStore } from '../../store/store';
 import { ProjectData, Marker, GlobalControls, RecentProject } from '../../types/types';
 import { pickAudioFile, validateAudioFile } from '../audio/audioFilePicker';
+import { getDefaultZoomLevel } from '../../utils/defaultZoom';
 
 const PROJECT_VERSION = '1.0.0';
 const RECENT_PROJECTS_KEY = 'transcribe-pro-recent-projects';
@@ -140,8 +141,8 @@ export class ProjectLoader {
       if (data.uiState && typeof data.uiState === 'object') {
         validatedUIState = {
           zoomLevel: typeof data.uiState.zoomLevel === 'number' && !isNaN(data.uiState.zoomLevel) && data.uiState.zoomLevel > 0
-            ? Math.max(1, Math.min(8, data.uiState.zoomLevel))
-            : 1,
+            ? Math.max(1, Math.min(50, data.uiState.zoomLevel))
+            : getDefaultZoomLevel(),
           viewportStart: typeof data.uiState.viewportStart === 'number' && !isNaN(data.uiState.viewportStart) && data.uiState.viewportStart >= 0
             ? data.uiState.viewportStart
             : 0,
@@ -247,8 +248,8 @@ export class ProjectLoader {
       store.toggleMute(); // Unmute if muted
     }
 
-    // Reset UI state to defaults - show 20% (1/5) of audio initially
-    const DEFAULT_ZOOM = 5;
+    // Reset UI state to defaults for current device class
+    const DEFAULT_ZOOM = getDefaultZoomLevel();
     store.setZoomLevel(DEFAULT_ZOOM);
 
     // Poll for audio load completion then reset viewport to 20% view (250ms to reduce CPU)
@@ -616,8 +617,8 @@ export class ProjectLoader {
         store.toggleMute(); // Unmute if muted
       }
 
-      // Reset UI state to defaults - show 20% (1/5) of audio initially
-      const DEFAULT_ZOOM_2 = 5;
+      // Reset UI state to defaults for current device class
+      const DEFAULT_ZOOM_2 = getDefaultZoomLevel();
       store.setZoomLevel(DEFAULT_ZOOM_2);
       
       // Poll for audio load completion then reset viewport (250ms to reduce CPU)

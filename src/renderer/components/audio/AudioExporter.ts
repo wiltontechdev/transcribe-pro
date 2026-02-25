@@ -128,7 +128,7 @@ export class AudioExporter {
 
       // Read output file
       const data = await ffmpeg.readFile(outputFileName);
-      const blob = new Blob([data], { type: outputMimeType });
+      const blob = new Blob([data as BlobPart], { type: outputMimeType });
 
       // Cleanup
       await ffmpeg.deleteFile(fileName);

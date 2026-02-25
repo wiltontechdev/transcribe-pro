@@ -212,6 +212,42 @@ const createWindow = (): void => {
     mainWindow = null;
   });
 
+  // Marker navigation keys: Electron often doesn't deliver arrow keydown to DOM.
+  // When captureArrows=true, prevent default and send IPC. When false (user typing), let key through.
+  let captureArrows = true;
+  ipcMain.on('set-capture-arrows', (_e, enabled: boolean) => {
+    captureArrows = enabled;
+  });
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    const rawKey = (((input as any).key || '') as string);
+    const rawCode = (((input as any).code || '') as string);
+    const rawKeyCode = (((input as any).keyCode || '') as string);
+    const key = rawKey.toLowerCase();
+    const code = rawCode.toLowerCase();
+    const keyCode = rawKeyCode.toLowerCase();
+    const isPrevMarkerKey =
+      key === 'arrowleft' ||
+      key === 'left' ||
+      key === 'a' ||
+      key === 'keya' ||
+      code === 'keya' ||
+      keyCode === 'keya';
+    const isNextMarkerKey =
+      key === 'arrowright' ||
+      key === 'right' ||
+      key === 'd' ||
+      key === 'keyd' ||
+      code === 'keyd' ||
+      keyCode === 'keyd';
+    if (isPrevMarkerKey || isNextMarkerKey) {
+      if (captureArrows) {
+        event.preventDefault();
+        const payload = { key: isPrevMarkerKey ? 'PrevMarker' : 'NextMarker' };
+        mainWindow?.webContents.send('arrow-key', payload);
+      }
+    }
+  });
+
   // Application menu: View > Zoom and DevTools (so user can zoom in/out/reset and open DevTools)
   const isMac = process.platform === 'darwin';
   const zoomIn = (): void => {

@@ -508,12 +508,14 @@ const SettingsModal: React.FC = () => {
               >
             {[
               { key: 'Space', desc: 'Play/Pause' },
-              { key: 'M', desc: 'Add Marker' },
+              { key: 'N', desc: 'Add Marker' },
+              { key: 'M', desc: 'Mute / Unmute' },
+              { key: 'L', desc: 'Toggle active marker loop' },
               { key: 'Ctrl+Z', desc: 'Undo' },
               { key: 'Ctrl+Y', desc: 'Redo' },
               { key: 'Ctrl+S', desc: 'Save Project' },
               { key: 'Ctrl+O', desc: 'Open Project' },
-              { key: '←/→', desc: 'Skip 5s' },
+              { key: 'Left/Right or A/D', desc: 'Navigate markers' },
               { key: '↑/↓', desc: 'Volume' },
             ].map((shortcut, idx) => (
               <div
@@ -523,7 +525,7 @@ const SettingsModal: React.FC = () => {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '0.4rem 0',
-                  borderBottom: idx < 7 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
+                  borderBottom: idx < 9 ? '1px solid rgba(255, 255, 255, 0.05)' : 'none',
                 }}
               >
                 <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
@@ -938,3 +940,4 @@ const AboutAndUpdates: React.FC = () => {
 };
 
 export default SettingsModal;
+

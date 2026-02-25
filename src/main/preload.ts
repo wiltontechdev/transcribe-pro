@@ -114,6 +114,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return await ipcRenderer.invoke('open-release-notes', url);
   },
   
+  // Arrow keys from main (before-input-event) - Electron often doesn't deliver keydown for arrows
+  onArrowKey: (callback: (data: { key: string }) => void) => {
+    const handler = (_e: any, payload: { key: string }) => callback(payload);
+    ipcRenderer.on('arrow-key', handler);
+    return () => ipcRenderer.removeListener('arrow-key', handler);
+  },
+  setCaptureArrows: (enabled: boolean) => {
+    ipcRenderer.send('set-capture-arrows', enabled);
+  },
+
   // Listen for update status events from main process
   onUpdateStatus: (callback: (event: { status: string; data?: any }) => void) => {
     const handler = (_event: any, payload: { status: string; data?: any }) => {
@@ -125,4 +135,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('update-status', handler);
     };
   },
+
 });

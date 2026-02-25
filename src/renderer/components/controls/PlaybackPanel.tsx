@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { useAudioEngine } from '../audio/useAudioEngine';
 import { useAppStore } from '../../store/store';
 import { MarkerManager } from '../markers/MarkerManager';
+import { showToast } from '../ui/Toast';
 
 // Kenyan flag colors
 const KENYAN_RED = '#DE2910';
@@ -21,6 +22,7 @@ const PlaybackPanel: React.FC = () => {
     pause, 
     stop, 
     seek,
+    resumeAudioContext,
     setSpeed,
     getSpeed
   } = useAudioEngine();
@@ -57,6 +59,7 @@ const PlaybackPanel: React.FC = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState(storedSpeed || 1.0);
   const [showSpeedPopup, setShowSpeedPopup] = useState(false);
   const speedPopupRef = useRef<HTMLDivElement>(null);
+  const mutedHintShownRef = useRef(false);
   
   // Sync playback speed with store
   useEffect(() => {
@@ -94,8 +97,30 @@ const PlaybackPanel: React.FC = () => {
   }, []);
 
   const handlePlay = async () => {
+    if (!isAudioLoaded) return;
+
+    const storeBefore = useAppStore.getState();
+    console.debug('[PlaybackDebug][UI] play-click', {
+      isAudioLoaded,
+      isPlaying,
+      currentTime: storeBefore.audio.currentTime,
+      muted: storeBefore.globalControls.isMuted,
+      volumeDb: storeBefore.globalControls.volume,
+      selectedMarkerId: storeBefore.ui.selectedMarkerId,
+    });
+
+    const showMutedHintOnce = () => {
+      const state = useAppStore.getState();
+      const muted = state.globalControls.isMuted || (state.globalControls.volume ?? 6) <= -60;
+      if (muted && !mutedHintShownRef.current) {
+        mutedHintShownRef.current = true;
+        showToast('Audio is muted. Press M or click the speaker icon to unmute.', 'warning', 2500);
+      } else if (!muted) {
+        mutedHintShownRef.current = false;
+      }
+    };
+
     try {
-      if (!isAudioLoaded) return;
       // CRITICAL: play() must run before any await - browsers block audio if user gesture is lost.
       // Awaiting seek/resume before play() loses the gesture, so first play would be silent.
       const store = useAppStore.getState();
@@ -105,7 +130,27 @@ const PlaybackPanel: React.FC = () => {
         if (marker) seek(marker.start); // Fire seek (sync internally) - don't await
       }
       await play(); // play() runs howl.play() synchronously before its first await
+      console.debug('[PlaybackDebug][UI] play-success', {
+        storeIsPlaying: useAppStore.getState().audio.isPlaying,
+        currentTime: useAppStore.getState().audio.currentTime,
+      });
+      showMutedHintOnce();
     } catch (err) {
+      console.error('[PlaybackDebug][UI] play-failed-first-attempt', err);
+      try {
+        // Retry after explicit context resume; handles occasional Electron context race.
+        await resumeAudioContext();
+        await play();
+        console.debug('[PlaybackDebug][UI] play-success-after-retry', {
+          storeIsPlaying: useAppStore.getState().audio.isPlaying,
+          currentTime: useAppStore.getState().audio.currentTime,
+        });
+        showMutedHintOnce();
+        return;
+      } catch (retryErr) {
+        console.error('[PlaybackDebug][UI] play-failed-retry', retryErr);
+      }
+      showToast('Playback failed. Please reload the audio file and try again.', 'error', 3500);
     }
   };
 

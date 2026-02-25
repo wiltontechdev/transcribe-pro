@@ -8,6 +8,7 @@ import { pickAudioFile, validateAudioFile } from '../audio/audioFilePicker';
 import { getProjectLoader } from '../project/ProjectLoader';
 import { getProjectSaver, StoredProject, deleteProjectFromIndexedDB } from '../project/ProjectSaver';
 import { useAppStore } from '../../store/store';
+import { getDefaultZoomLevel } from '../../utils/defaultZoom';
 import QuickStartGuide from './QuickStartGuide';
 import { showToast } from './Toast';
 
@@ -214,8 +215,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAudioLoaded, onProjectL
       store.setVolume(6);
       store.setPlaybackRate(1);
       if (store.globalControls.isMuted) store.toggleMute();
-      // Start with 20% view (zoom 5) on all devices
-      store.setZoomLevel(5);
+      // Start with default zoom for current device class
+      store.setZoomLevel(getDefaultZoomLevel());
       
       await resumeAudioContext();
       const file = await pickAudioFile();
@@ -288,8 +289,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onAudioLoaded, onProjectL
       store.setVolume(6);
       store.setPlaybackRate(1);
       if (store.globalControls.isMuted) store.toggleMute();
-      // Start with 20% view (zoom 5) on all devices
-      store.setZoomLevel(5);
+      // Start with default zoom for current device class
+      store.setZoomLevel(getDefaultZoomLevel());
       
       await resumeAudioContext();
       await loadFile(file);

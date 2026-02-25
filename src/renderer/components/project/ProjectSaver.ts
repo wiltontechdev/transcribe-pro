@@ -720,7 +720,7 @@ export class ProjectSaver {
       };
 
       // On mobile, request persistent storage so the browser is less likely to evict IndexedDB
-      if (typeof navigator !== 'undefined' && navigator.storage?.persist?.()) {
+      if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
         try {
           await navigator.storage.persist();
         } catch (_) {}

@@ -296,7 +296,7 @@ html, body {
   display: flex;
   align-items: center;
   font-family: 'Inter', sans-serif;
-  overflow-x: hidden; /* Prevent horizontal scrolling */
+  overflow-x: hidden;
   overflow-y: visible; /* Allow dropdowns to overflow vertically */
 }
 
@@ -319,6 +319,7 @@ html, body {
   gap: clamp(0.4rem, 0.5vw, 0.75rem);
   max-width: 100vw;
   width: 100%;
+  outline: none; /* No focus ring - used as keyboard shortcut target when clicking waveform/timeline */
 }
 
 /* Responsive padding for smaller screens */
@@ -1350,7 +1351,7 @@ button:active, .button:active {
     height: clamp(4rem, 6vh, 5.5rem);
     min-height: clamp(3.75rem, 5.5vh, 5rem);
     flex-shrink: 0;
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: visible;
   }
 }

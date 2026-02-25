@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Marker, AudioState, UIState, GlobalControls, ProjectData } from '../types/types';
+import { getDefaultZoomLevel } from '../utils/defaultZoom';
 
 interface AppStore {
   // Audio State
@@ -82,7 +83,7 @@ const initialUIState: UIState = {
   isExportModalOpen: false,
   exportStartTime: undefined,
   exportEndTime: undefined,
-  zoomLevel: 1,
+  zoomLevel: getDefaultZoomLevel(),
   viewportStart: 0,
   viewportEnd: 0,
   requestMarkerCreation: false,
@@ -405,4 +406,3 @@ if (savedTheme) {
 } else {
   document.documentElement.setAttribute('data-theme', 'dark');
 }
-

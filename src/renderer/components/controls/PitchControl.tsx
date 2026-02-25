@@ -10,7 +10,7 @@ interface PitchControlProps {
 
 export const PitchControl: React.FC<PitchControlProps> = ({ onPitchChange, isAudioLoaded }) => {
   const pitch = useAppStore((state) => state.globalControls.pitch);
-  const isLightMode = useAppStore((state) => state.ui.isLightMode);
+  const isLightMode = useAppStore((state) => state.theme) === 'light';
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [targetPitch, setTargetPitch] = useState(0);
@@ -38,10 +38,10 @@ export const PitchControl: React.FC<PitchControlProps> = ({ onPitchChange, isAud
 
   const pitchColor = getPitchColor(pitch);
 
-  // Handle pitch step change (increment/decrement by 0.1)
+  // Handle pitch step change (increment/decrement by 0.01 semitone = 1%)
   const handlePitchStep = (step: number) => {
     if (!isAudioLoaded || isProcessing) return;
-    const newPitch = Math.max(-2, Math.min(2, Math.round((pitch + step) * 10) / 10));
+    const newPitch = Math.max(-2, Math.min(2, Math.round((pitch + step) * 100) / 100));
     onPitchChange(newPitch);
   };
 
@@ -70,7 +70,7 @@ export const PitchControl: React.FC<PitchControlProps> = ({ onPitchChange, isAud
     if (!isNaN(numValue)) {
       // Input is percentage: 100 = 1 semitone, 50 = 0.5 semitones. Max ±200% = ±2 semitones
       const semitones = numValue / 100;
-      const clampedValue = Math.max(-2, Math.min(2, Math.round(semitones * 10) / 10));
+      const clampedValue = Math.max(-2, Math.min(2, Math.round(semitones * 100) / 100));
       onPitchChange(clampedValue);
       setInputValue('');
     } else {
@@ -150,7 +150,7 @@ export const PitchControl: React.FC<PitchControlProps> = ({ onPitchChange, isAud
       >
         {/* Pitch Down Button */}
         <button
-          onClick={() => handlePitchStep(-0.1)}
+          onClick={() => handlePitchStep(-0.01)}
           disabled={!isAudioLoaded || isProcessing || pitch <= -2}
           style={{
             background: 'transparent',
@@ -179,7 +179,7 @@ export const PitchControl: React.FC<PitchControlProps> = ({ onPitchChange, isAud
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
           }}
-          title="Decrease pitch by 0.1%"
+          title="Decrease pitch by 1% (0.01 semitone)"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M12 5v14M7 12l5-5 5 5"/>
@@ -265,7 +265,7 @@ export const PitchControl: React.FC<PitchControlProps> = ({ onPitchChange, isAud
 
         {/* Pitch Up Button */}
         <button
-          onClick={() => handlePitchStep(0.1)}
+          onClick={() => handlePitchStep(0.01)}
           disabled={!isAudioLoaded || isProcessing || pitch >= 2}
           style={{
             background: 'transparent',
@@ -294,7 +294,7 @@ export const PitchControl: React.FC<PitchControlProps> = ({ onPitchChange, isAud
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
           }}
-          title="Increase pitch by 0.1%"
+          title="Increase pitch by 1% (0.01 semitone)"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M12 19V5M7 12l5 5 5-5"/>
@@ -317,36 +317,36 @@ export const PitchControl: React.FC<PitchControlProps> = ({ onPitchChange, isAud
             style={{
               padding: '4px 10px',
               borderRadius: '6px',
-              background: Math.abs(pitch - preset) < 0.05
+              background: Math.abs(pitch - preset) < 0.005
                 ? (isLightMode
                     ? `linear-gradient(135deg, ${pitchColor}20, ${pitchColor}15)`
                     : `linear-gradient(135deg, ${pitchColor}35, ${pitchColor}25)`)
                 : (isLightMode
                     ? 'rgba(0, 0, 0, 0.05)'
                     : 'rgba(255, 255, 255, 0.1)'),
-              color: Math.abs(pitch - preset) < 0.05
+              color: Math.abs(pitch - preset) < 0.005
                 ? pitchColor
                 : (isLightMode ? '#1a1a1a' : '#FFFFFF'),
               fontSize: '10px',
-              fontWeight: Math.abs(pitch - preset) < 0.05 ? 700 : 500,
+              fontWeight: Math.abs(pitch - preset) < 0.005 ? 700 : 500,
               cursor: isAudioLoaded && !isProcessing ? 'pointer' : 'not-allowed',
               transition: 'all 0.2s ease',
               opacity: isAudioLoaded ? 1 : 0.5,
-              border: Math.abs(pitch - preset) < 0.05
+              border: Math.abs(pitch - preset) < 0.005
                 ? `1px solid ${pitchColor}50`
                 : (isLightMode
                     ? '1px solid rgba(0, 0, 0, 0.1)'
                     : '1px solid rgba(255, 255, 255, 0.15)'),
             }}
             onMouseEnter={(e) => {
-              if (isAudioLoaded && !isProcessing && Math.abs(pitch - preset) >= 0.05) {
+              if (isAudioLoaded && !isProcessing && Math.abs(pitch - preset) >= 0.005) {
                 e.currentTarget.style.background = isLightMode
                   ? 'rgba(0, 0, 0, 0.08)'
                   : 'rgba(255, 255, 255, 0.15)';
               }
             }}
             onMouseLeave={(e) => {
-              if (Math.abs(pitch - preset) >= 0.05) {
+              if (Math.abs(pitch - preset) >= 0.005) {
                 e.currentTarget.style.background = isLightMode
                   ? 'rgba(0, 0, 0, 0.05)'
                   : 'rgba(255, 255, 255, 0.1)';

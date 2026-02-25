@@ -1,15 +1,17 @@
 // HowlerAudioEngine.ts - Stable audio engine for Electron
-// ON-DEMAND pitch conversion with seamless playback transition
+// Real-time pitch/speed control with smooth playback transitions
 
 import { Howl } from 'howler';
 import * as Tone from 'tone';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { useAppStore } from '../../store/store';
+import { getDefaultZoomLevel } from '../../utils/defaultZoom';
 
 const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron;
 
-// TEMPORARY: Pitch disabled in Howler - will re-enable later
 const PITCH_ENABLED_IN_HOWLER = false;
+const ENABLE_FFMPEG_PITCH_FALLBACK = false;
+const PLAYBACK_DEBUG = true;
 
 // Electron: html5: true avoids blank screen. Pitch via Tone.PitchShift routed from HTML5 audio element.
 
@@ -56,7 +58,7 @@ function emitPitchStatus(status: { isProcessing: boolean; targetPitch: number; p
 }
 
 /**
- * HowlerAudioEngine - ON-DEMAND pitch conversion with seamless transition
+ * HowlerAudioEngine - Real-time pitch/speed control with smooth transitions
  */
 export class HowlerAudioEngine {
   private howl: Howl | null = null;
@@ -107,12 +109,21 @@ export class HowlerAudioEngine {
   private static readonly TIME_UPDATE_INTERVAL_MS = 150;   // ~6.7/sec (snappier Electron)
   private static readonly TIME_UPDATE_MIN_DELTA = 0.1;     // skip if change < 100ms
 
-  // Short fade - prevents clicks while keeping response snappy
-  private static readonly FADE_DURATION_MS = 40;
+  private static readonly PITCH_EPSILON = 0.005;
+  // Short fades - prevent clicks while keeping response snappy.
+  private static readonly FADE_DURATION_MS = 80;
+  private static readonly SEEK_FADE_OUT_MS = 30;
+  private static readonly SEEK_FADE_IN_MS = 60;
   private fadeRampId: number = 0;  // Cancel previous fade when new action starts
+  private seekOperationToken: number = 0; // Cancel stale seek fade/seek sequences
 
   constructor() {
     // Engine initialized
+  }
+
+  private debugLog(event: string, payload?: Record<string, unknown>): void {
+    if (!PLAYBACK_DEBUG) return;
+    console.debug('[PlaybackDebug][Howler]', event, payload ?? {});
   }
 
   public isFormatSupported(file: File): boolean {
@@ -198,7 +209,7 @@ export class HowlerAudioEngine {
         const name = file.name;
         this.originalTempPathPromise = (async () => {
           try {
-            this.originalTempPath = await window.electronAPI.saveTempAudio(data, name);
+            this.originalTempPath = await window.electronAPI!.saveTempAudio(data, name);
             return this.originalTempPath;
           } catch {
             return null;
@@ -226,6 +237,7 @@ export class HowlerAudioEngine {
         preload: true,
           onload: () => {
             clearTimeout(timeout);
+            this.debugLog('onload', { preserveState: !!preserveState });
           
           // Store old howl reference
           const oldHowl = this.howl;
@@ -240,13 +252,11 @@ export class HowlerAudioEngine {
           // Update store with original duration (duration never changes with speed)
           useAppStore.getState().setDuration(this.duration);
           
-          // Only route through Tone.PitchShift when pitch is needed (disabled when PITCH_ENABLED_IN_HOWLER is false)
+          // Route through Tone.PitchShift in Electron for real-time pitch/speed updates.
           if (PITCH_ENABLED_IN_HOWLER) {
             const storedPitch = useAppStore.getState().globalControls.pitch;
-            if (storedPitch !== undefined && Math.abs(storedPitch) >= 0.05) {
-              this.currentPitch = storedPitch;
-              this.setupPitchShiftRouting(newHowl);
-            }
+            if (storedPitch !== undefined) this.currentPitch = storedPitch;
+            this.setupPitchShiftRouting(newHowl);
           }
           
           // If preserving state, seek and play
@@ -255,11 +265,11 @@ export class HowlerAudioEngine {
             const seekTime = Math.min(preserveState.time, this.duration);
             newHowl.seek(seekTime);
             
-            if (preserveState.playing) {
-              this.currentSoundId = newHowl.play() as number;
-              this.applySpeedToHtml5Element();
-              this.startTimeUpdate();
-            }
+              if (preserveState.playing) {
+                this.currentSoundId = newHowl.play() as number;
+                this.applySpeedToHtml5Element();
+                this.startTimeUpdate();
+              }
           }
           
           // Now stop old howl (after new one is playing)
@@ -271,7 +281,7 @@ export class HowlerAudioEngine {
           // Update store only on initial load (not on pitch switch)
           // Do NOT call setAudioReadyForPlayback - we wait for waveform before showing UI
           if (!preserveState) {
-            const DEFAULT_ZOOM = 5; // Show 20% (1/5) of audio initially
+            const DEFAULT_ZOOM = getDefaultZoomLevel();
             useAppStore.getState().setDuration(this.duration);
             useAppStore.getState().setViewport(0, this.duration / DEFAULT_ZOOM);
             useAppStore.getState().setZoomLevel(DEFAULT_ZOOM);
@@ -285,10 +295,10 @@ export class HowlerAudioEngine {
             // Initialize pitch from store (routing already set up above if needed)
             if (PITCH_ENABLED_IN_HOWLER) {
               const storedPitchInit = useAppStore.getState().globalControls.pitch;
-              if (storedPitchInit !== undefined && Math.abs(storedPitchInit) >= 0.05) {
+              if (storedPitchInit !== undefined) {
                 this.currentPitch = storedPitchInit;
-                this.applyPitchToTone();
               }
+              this.applyPitchToTone();
             }
           } else if (PITCH_ENABLED_IN_HOWLER) {
             this.applyPitchToTone();
@@ -298,10 +308,33 @@ export class HowlerAudioEngine {
           },
         onloaderror: (_, err) => {
             clearTimeout(timeout);
+          this.debugLog('onloaderror', { error: String(err) });
           newHowl.unload();
           reject(new Error(`Load error: ${err}`));
           },
+          onplay: (id) => {
+            this.currentSoundId = typeof id === 'number' ? id : this.currentSoundId;
+            this.debugLog('onplay', {
+              id: this.currentSoundId,
+              currentTime: this.getCurrentTime(),
+              muted: useAppStore.getState().globalControls.isMuted,
+              volumeDb: useAppStore.getState().globalControls.volume,
+            });
+          },
+          onplayerror: (id, error) => {
+            this.debugLog('onplayerror', { id, error: String(error) });
+            this.currentSoundId = null;
+            this.stopTimeUpdate();
+            useAppStore.getState().setIsPlaying(false);
+          },
+          onpause: (id) => {
+            this.debugLog('onpause', { id });
+          },
+          onstop: (id) => {
+            this.debugLog('onstop', { id });
+          },
           onend: () => {
+            this.debugLog('onend');
             this.stopTimeUpdate();
             useAppStore.getState().setIsPlaying(false);
           useAppStore.getState().setCurrentTime(this.duration);
@@ -316,6 +349,8 @@ export class HowlerAudioEngine {
    */
   private setupPitchShiftRouting(howl: Howl): void {
     this.disposePitchShiftRouting();
+    let localSource: MediaElementAudioSourceNode | null = null;
+    let ctx: AudioContext | null = null;
     try {
       const howlAny = howl as any;
       const sounds = howlAny._sounds;
@@ -327,20 +362,36 @@ export class HowlerAudioEngine {
       const Howler = (window as any).Howler;
       if (!Howler?.ctx) return;
 
-      const ctx = Howler.ctx as AudioContext;
+      ctx = Howler.ctx as AudioContext;
       if (ctx.state === 'suspended') {
         ctx.resume().catch(() => {});
       }
       Tone.setContext(ctx);
 
-      this.mediaElementSource = ctx.createMediaElementSource(audioEl);
-      this.tonePitchShift = new Tone.PitchShift({
+      localSource = ctx.createMediaElementSource(audioEl);
+      const pitchShift = new Tone.PitchShift({
         pitch: this.currentPitch,
-        windowSize: 0.03, // Smaller = more instant response (0.2 was ~200ms delay)
+        windowSize: 0.045,
+        delayTime: 0,
+        feedback: 0,
       });
-      this.mediaElementSource.connect(this.tonePitchShift.input);
-      this.tonePitchShift.connect(ctx.destination);
+      localSource.connect(pitchShift.input as unknown as AudioNode);
+      (pitchShift as any).connect(ctx.destination);
+      this.mediaElementSource = localSource;
+      this.tonePitchShift = pitchShift;
+      this.debugLog('pitch-routing-ready', { pitch: this.currentPitch });
     } catch (e) {
+      this.debugLog('pitch-routing-failed', { error: e instanceof Error ? e.message : String(e) });
+      // Fallback path: keep direct audible output even if Tone.PitchShift init fails.
+      if (localSource && ctx) {
+        try {
+          localSource.connect(ctx.destination);
+          this.mediaElementSource = localSource;
+          this.tonePitchShift = null;
+          this.debugLog('pitch-routing-fallback-direct-output');
+          return;
+        } catch (_) {}
+      }
       this.disposePitchShiftRouting();
     }
   }
@@ -352,6 +403,9 @@ export class HowlerAudioEngine {
         this.tonePitchShift.dispose();
         this.tonePitchShift = null;
       }
+      if (this.mediaElementSource) {
+        this.mediaElementSource.disconnect();
+      }
       this.mediaElementSource = null;
     } catch (_) {}
   }
@@ -360,7 +414,14 @@ export class HowlerAudioEngine {
   private applyPitchToTone(): void {
     if (this.tonePitchShift) {
       const pitchFromSpeed = this.currentSpeed !== 1 ? 12 * Math.log2(this.currentSpeed) : 0;
-      this.tonePitchShift.pitch = this.currentPitch - pitchFromSpeed;
+      const effectivePitch = this.currentPitch - pitchFromSpeed;
+      if (Math.abs(effectivePitch) < HowlerAudioEngine.PITCH_EPSILON) {
+        this.tonePitchShift.wet.value = 0;
+        this.tonePitchShift.pitch = 0;
+      } else {
+        this.tonePitchShift.wet.value = 1;
+        this.tonePitchShift.pitch = effectivePitch;
+      }
     }
   }
 
@@ -385,51 +446,59 @@ export class HowlerAudioEngine {
   /** Get effective playback rate (pitch * speed) clamped to prevent distortion */
   private getEffectiveRate(speedOverride?: number): number {
     const speed = speedOverride ?? this.currentSpeed;
-    const pitchRate = Math.abs(this.currentPitch) < 0.05 ? 1 : Math.pow(2, this.currentPitch / 12);
+    const pitchRate = Math.abs(this.currentPitch) < HowlerAudioEngine.PITCH_EPSILON ? 1 : Math.pow(2, this.currentPitch / 12);
     return this.clampRate(pitchRate * speed);
   }
 
   /**
-   * Set pitch - via Tone.PitchShift (html5 mode) or Howler rate() (web audio mode).
-   * Disabled when PITCH_ENABLED_IN_HOWLER is false.
+   * Set pitch in semitones (range: -2 to +2, precision: 0.01).
+   * Electron path is currently disabled by request (kept for future re-enable).
    */
   public setPitch(semitones: number): void {
-    const targetPitch = Math.max(-2, Math.min(2, Math.round(semitones * 10) / 10));
-    useAppStore.getState().setPitch(targetPitch);
-    this.targetPitch = targetPitch;
-    if (!PITCH_ENABLED_IN_HOWLER) {
-      // Electron: use FFmpeg for high-quality pitch (no Tone.js artifacts)
-      if (isElectron && window.electronAPI?.pitchShiftFile) {
-        this.processPitchChange(targetPitch);
-      } else {
-        emitPitchStatus({ isProcessing: false, targetPitch, progress: 100 });
-      }
-      return;
-    }
-    
-    if (Math.abs(targetPitch - this.currentPitch) < 0.05) {
+    // Pitch control is temporarily disabled in Electron by request.
+    if (isElectron && !PITCH_ENABLED_IN_HOWLER) {
+      this.targetPitch = 0;
+      this.currentPitch = 0;
+      useAppStore.getState().setPitch(0);
+      emitPitchStatus({ isProcessing: false, targetPitch: 0, progress: 100 });
+      this.debugLog('pitch-disabled-electron', { requestedSemitones: semitones });
       return;
     }
 
+    const targetPitch = Math.max(-2, Math.min(2, Math.round(semitones * 100) / 100));
+    useAppStore.getState().setPitch(targetPitch);
+    this.targetPitch = targetPitch;
+
+    // Keep FFmpeg conversion path as dormant fallback (disabled by default).
+    if (!PITCH_ENABLED_IN_HOWLER && ENABLE_FFMPEG_PITCH_FALLBACK && isElectron && window.electronAPI?.pitchShiftFile) {
+      void this.processPitchChange(targetPitch);
+      return;
+    }
+
+    if (Math.abs(targetPitch - this.currentPitch) < HowlerAudioEngine.PITCH_EPSILON) {
+      emitPitchStatus({ isProcessing: false, targetPitch, progress: 100 });
+      return;
+    }
+
+    this.currentPitch = targetPitch;
+
     if (this.howl) {
-      this.currentPitch = targetPitch;
-      if (Math.abs(targetPitch) >= 0.05) {
-        if (!this.tonePitchShift) {
-          this.setupPitchShiftRouting(this.howl);
-        }
-        if (this.tonePitchShift) {
-          this.applyPitchToTone();
-          this.applySpeedToHtml5Element();
-        }
-      } else if (this.tonePitchShift) {
+      if (PITCH_ENABLED_IN_HOWLER && !this.tonePitchShift) {
+        this.setupPitchShiftRouting(this.howl);
+      }
+      if (this.tonePitchShift) {
         this.applyPitchToTone();
       }
-      emitPitchStatus({ isProcessing: false, targetPitch, progress: 100 });
+      this.applySpeedToHtml5Element();
+      if (!PITCH_ENABLED_IN_HOWLER && this.currentSoundId !== null && this.getEffectiveRate() !== 1.0) {
+        this.howl.rate(this.getEffectiveRate(), this.currentSoundId);
+      }
     }
+    emitPitchStatus({ isProcessing: false, targetPitch, progress: 100 });
   }
   
   /**
-   * Process pitch change - runs in background, audio keeps playing
+   * FFmpeg fallback pitch conversion path (kept for optional future use).
    */
   private async processPitchChange(targetPitch: number): Promise<void> {
     // If already processing, abort current and start new
@@ -446,7 +515,7 @@ export class HowlerAudioEngine {
 
     try {
       // Check if going back to original pitch
-      if (Math.abs(targetPitch) < 0.05) {
+      if (Math.abs(targetPitch) < HowlerAudioEngine.PITCH_EPSILON) {
         // Switch back - check if speed is also 1.0
         const wasPlaying = this.howl?.playing() || false;
         const currentTime = this.getCurrentTime();
@@ -568,12 +637,17 @@ export class HowlerAudioEngine {
     return Math.max(0, Math.min(1, linear / maxLinear));
   }
 
-  /** Ramp Howler volume over FADE_DURATION_MS - prevents clicks/pops */
-  private rampVolume(from: number, to: number, onComplete?: () => void): void {
+  /** Ramp Howler volume with easing - prevents clicks/pops on transport changes. */
+  private rampVolume(
+    from: number,
+    to: number,
+    onComplete?: () => void,
+    durationMs: number = HowlerAudioEngine.FADE_DURATION_MS,
+  ): void {
     if (!this.howl) return;
     const id = ++this.fadeRampId;
-    const steps = 6;  // Fewer steps = snappier
-    const stepMs = HowlerAudioEngine.FADE_DURATION_MS / steps;
+    const steps = Math.max(4, Math.round(durationMs / 12));
+    const stepMs = durationMs / steps;
     let step = 0;
     const tick = () => {
       if (id !== this.fadeRampId || !this.howl) return;
@@ -591,16 +665,157 @@ export class HowlerAudioEngine {
     tick();
   }
 
+  private rampVolumeAsync(from: number, to: number, durationMs: number, token: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (!this.howl) {
+        resolve(false);
+        return;
+      }
+
+      const steps = Math.max(4, Math.round(durationMs / 12));
+      const stepMs = durationMs / steps;
+      let step = 0;
+
+      const tick = () => {
+        if (!this.howl) {
+          resolve(false);
+          return;
+        }
+        if (token !== this.seekOperationToken) {
+          resolve(false);
+          return;
+        }
+
+        step++;
+        const t = Math.min(1, step / steps);
+        const eased = t * t * (3 - 2 * t);
+        const vol = from + (to - from) * eased;
+        this.howl.volume(vol);
+
+        if (step < steps) {
+          setTimeout(tick, stepMs);
+        } else {
+          resolve(true);
+        }
+      };
+
+      tick();
+    });
+  }
+
+  private applyPlaybackStateAfterSeek(): void {
+    if (!this.howl) return;
+
+    if (PITCH_ENABLED_IN_HOWLER) {
+      if (this.tonePitchShift) {
+        this.applyPitchToTone();
+      }
+      this.applySpeedToHtml5Element();
+      return;
+    }
+
+    const effectiveRate = this.getEffectiveRate();
+    if (this.currentSoundId !== null && effectiveRate !== 1.0) {
+      this.howl.rate(effectiveRate, this.currentSoundId);
+    }
+  }
+
+  private performSeek(time: number): void {
+    if (!this.howl) return;
+    if (this.currentSoundId !== null) {
+      this.howl.seek(time, this.currentSoundId);
+    } else {
+      this.howl.seek(time);
+    }
+    useAppStore.getState().setCurrentTime(time);
+  }
+
+  private ensurePlayingAfterSeek(targetTime: number): void {
+    if (!this.howl) return;
+    if (this.currentSoundId === null) {
+      this.currentSoundId = this.howl.play() as number;
+      if (this.currentSoundId !== null) {
+        this.howl.seek(targetTime, this.currentSoundId);
+      }
+      return;
+    }
+    if (!this.howl.playing(this.currentSoundId)) {
+      this.howl.play(this.currentSoundId);
+    }
+  }
+
+  private async smoothSeekWhilePlaying(targetTime: number, token: number): Promise<void> {
+    if (!this.howl) return;
+
+    const currentVol = this.howl.volume();
+    const targetVol = this.getTargetVolumeLinear();
+    const fadedOut = await this.rampVolumeAsync(
+      currentVol,
+      0,
+      HowlerAudioEngine.SEEK_FADE_OUT_MS,
+      token,
+    );
+    if (!fadedOut || token !== this.seekOperationToken || !this.howl) {
+      return;
+    }
+
+    this.performSeek(targetTime);
+    this.ensurePlayingAfterSeek(targetTime);
+    this.applyPlaybackStateAfterSeek();
+    await this.rampVolumeAsync(0, targetVol, HowlerAudioEngine.SEEK_FADE_IN_MS, token);
+  }
+
   // === Standard playback methods ===
 
   public async play(): Promise<void> {
     if (!this.howl) throw new Error('No audio');
+    this.seekOperationToken++;
+    this.debugLog('play-called', {
+      currentSoundId: this.currentSoundId,
+      storeIsPlaying: useAppStore.getState().audio.isPlaying,
+      muted: useAppStore.getState().globalControls.isMuted,
+      volumeDb: useAppStore.getState().globalControls.volume,
+    });
     // User gesture must not be lost: play() before any await (PlaybackPanel depends on this)
     const targetVol = this.getTargetVolumeLinear();
     this.howl.volume(0);
-    this.currentSoundId = this.howl.play() as number;
+    try {
+      this.currentSoundId = this.howl.play() as number;
+    } catch {
+      this.currentSoundId = null;
+    }
     // Match web: resume context (web does Tone.context.resume before play; Howler creates ctx on first play)
     await this.resumeAudioContext();
+    this.debugLog('play-after-resume', {
+      currentSoundId: this.currentSoundId,
+      howlPlaying: this.currentSoundId !== null ? this.howl.playing(this.currentSoundId) : this.howl.playing(),
+    });
+
+    const isActuallyPlaying = (): boolean => {
+      if (!this.howl) return false;
+      if (this.currentSoundId !== null) return this.howl.playing(this.currentSoundId);
+      return this.howl.playing();
+    };
+
+    // Retry once after context resume when Howler accepted play() but media did not actually start.
+    if (!isActuallyPlaying() && this.howl) {
+      try {
+        if (this.currentSoundId !== null) {
+          this.howl.play(this.currentSoundId);
+        } else {
+          this.currentSoundId = this.howl.play() as number;
+        }
+      } catch {}
+      await new Promise((resolve) => setTimeout(resolve, 16));
+    }
+
+    if (!isActuallyPlaying()) {
+      this.stopTimeUpdate();
+      useAppStore.getState().setIsPlaying(false);
+      this.howl.volume(targetVol);
+      this.debugLog('play-failed-no-active-playback');
+      throw new Error('Playback did not start');
+    }
     
     if (PITCH_ENABLED_IN_HOWLER && this.tonePitchShift) {
       this.applyPitchToTone();
@@ -616,10 +831,15 @@ export class HowlerAudioEngine {
     useAppStore.getState().setIsPlaying(true);
     this.startTimeUpdate();
     this.rampVolume(0, targetVol);
+    this.debugLog('play-started', {
+      currentSoundId: this.currentSoundId,
+      targetVolumeLinear: targetVol,
+    });
   }
 
   public pause(): void {
     if (!this.howl) return;
+    this.seekOperationToken++;
     const soundId = this.currentSoundId;
     const currentVol = this.howl.volume();
     this.rampVolume(currentVol, 0, () => {
@@ -638,6 +858,7 @@ export class HowlerAudioEngine {
 
   public async stop(): Promise<void> {
     if (!this.howl) return;
+    this.seekOperationToken++;
     const currentVol = this.howl.volume();
     this.rampVolume(currentVol, 0, () => {
       if (!this.howl) return;
@@ -649,7 +870,7 @@ export class HowlerAudioEngine {
       this.howl.seek(0);
       const duration = this.getDuration();
       if (duration > 0) {
-        const DEFAULT_ZOOM_STOP = 5;
+        const DEFAULT_ZOOM_STOP = getDefaultZoomLevel();
         useAppStore.getState().setViewport(0, duration / DEFAULT_ZOOM_STOP);
         useAppStore.getState().setZoomLevel(DEFAULT_ZOOM_STOP);
       }
@@ -660,33 +881,20 @@ export class HowlerAudioEngine {
   public async seek(time: number): Promise<void> {
     if (!this.howl) return;
     const originalTime = Math.max(0, Math.min(time, this.duration));
-    const wasPlaying = this.currentSoundId !== null && this.howl.playing(this.currentSoundId);
-    
-    if (this.currentSoundId !== null) {
-      this.howl.seek(originalTime, this.currentSoundId);
-      useAppStore.getState().setCurrentTime(originalTime);
-      if (PITCH_ENABLED_IN_HOWLER && this.tonePitchShift) {
-        this.applySpeedToHtml5Element();
-      } else if (this.getEffectiveRate() !== 1.0) {
-        this.howl.rate(this.getEffectiveRate(), this.currentSoundId);
-      }
-      if (wasPlaying && !this.howl.playing(this.currentSoundId)) {
-        this.howl.play(this.currentSoundId);
-        if (PITCH_ENABLED_IN_HOWLER && this.tonePitchShift) this.applySpeedToHtml5Element();
-        else if (this.getEffectiveRate() !== 1.0) this.howl.rate(this.getEffectiveRate(), this.currentSoundId);
-      }
-    } else {
-      this.howl.seek(originalTime);
-      useAppStore.getState().setCurrentTime(originalTime);
-      if (wasPlaying) {
-        this.currentSoundId = this.howl.play() as number;
-        if (this.currentSoundId !== null) {
-          this.howl.seek(originalTime, this.currentSoundId);
-          if (PITCH_ENABLED_IN_HOWLER && this.tonePitchShift) this.applySpeedToHtml5Element();
-          else if (this.getEffectiveRate() !== 1.0) this.howl.rate(this.getEffectiveRate(), this.currentSoundId);
-        }
-      }
+    const wasPlaying =
+      this.currentSoundId !== null
+        ? this.howl.playing(this.currentSoundId)
+        : this.howl.playing();
+    const token = ++this.seekOperationToken;
+
+    if (wasPlaying) {
+      await this.smoothSeekWhilePlaying(originalTime, token);
+      return;
     }
+
+    if (token !== this.seekOperationToken) return;
+    this.performSeek(originalTime);
+    this.applyPlaybackStateAfterSeek();
   }
 
   public getCurrentTime(): number {
@@ -809,7 +1017,7 @@ export class HowlerAudioEngine {
         const wasPlaying = this.howl?.playing() || false;
         const currentTime = this.getCurrentTime();
         
-        if (Math.abs(this.currentPitch) < 0.05) {
+        if (Math.abs(this.currentPitch) < HowlerAudioEngine.PITCH_EPSILON) {
           // Both pitch and speed are original - use original file
           if (this.originalBlobUrl) {
             await this.loadHowlerFromUrl(this.originalBlobUrl, { time: currentTime, playing: wasPlaying });
@@ -855,7 +1063,7 @@ export class HowlerAudioEngine {
         this.originalTempPath = await this.originalTempPathPromise;
       }
       // Determine input file: use pitched file if pitch is not 0, otherwise use original
-      const inputFile = (this.currentPitch !== 0 && this.currentPitchedFilePath)
+      const inputFile = (Math.abs(this.currentPitch) >= HowlerAudioEngine.PITCH_EPSILON && this.currentPitchedFilePath)
         ? this.currentPitchedFilePath
         : this.originalTempPath;
       if (!inputFile) {
@@ -968,6 +1176,10 @@ export class HowlerAudioEngine {
       const ctx = Howler?.ctx as AudioContext | undefined;
       if (ctx?.state === 'suspended') await ctx.resume();
       if (Tone.context.state === 'suspended') await Tone.context.resume();
+      this.debugLog('resume-audio-context', {
+        howlerState: ctx?.state ?? 'unknown',
+        toneState: Tone.context.state,
+      });
     } catch (_) {}
   }
 
@@ -1003,8 +1215,7 @@ export class HowlerAudioEngine {
 
   /**
    * Handle loop end - jump back to loop start
-   * This ensures continuous looping by properly restarting playback
-   * Matches the behavior of AudioEngine (web version)
+   * Uses the same smooth seek envelope as manual marker navigation to reduce clicks.
    */
   private async handleLoopEnd(): Promise<void> {
     if (!this.isLooping || this.loopStart === null || this.loopEnd === null || !this.howl) {
@@ -1017,38 +1228,24 @@ export class HowlerAudioEngine {
 
     
     try {
-      const wasPlaying = this.currentSoundId !== null
-        ? this.howl.playing(this.currentSoundId)
-        : this.howl.playing();
-
-      // IMPORTANT: do NOT use Howler's built-in looping here.
-      // Also avoid stop()/play() because HTML5 audio frequently restarts at 0 before seek applies.
-      // Instead, just seek back to loopStart while continuing playback.
-      if (this.currentSoundId !== null) {
-        this.howl.seek(this.loopStart, this.currentSoundId);
-      } else {
-        this.howl.seek(this.loopStart);
+      const wasPlaying =
+        this.currentSoundId !== null
+          ? this.howl.playing(this.currentSoundId)
+          : this.howl.playing();
+      if (!wasPlaying) {
+        this.performSeek(this.loopStart);
+        return;
       }
 
-      useAppStore.getState().setCurrentTime(this.loopStart);
-
-      // Ensure playback continues if it was playing
-      if (wasPlaying) {
-        if (this.currentSoundId === null) {
-          this.currentSoundId = this.howl.play() as number;
-          if (this.currentSoundId !== null) {
-            this.howl.seek(this.loopStart, this.currentSoundId);
-          }
-        } else if (!this.howl.playing(this.currentSoundId)) {
-          this.howl.play(this.currentSoundId);
-        }
+      const loopJumpToken = ++this.seekOperationToken;
+      await this.smoothSeekWhilePlaying(this.loopStart, loopJumpToken);
+      if (loopJumpToken === this.seekOperationToken) {
         useAppStore.getState().setIsPlaying(true);
       }
-
-    } catch (error) {
+    } catch (_error) {
     } finally {
       // Allow next loop check after a short delay to prevent rapid re-trigger
-      setTimeout(() => { this.isHandlingLoopJump = false; }, 80);
+      setTimeout(() => { this.isHandlingLoopJump = false; }, 120);
     }
   }
 
@@ -1098,7 +1295,7 @@ export class HowlerAudioEngine {
   /** Decode waveform and set store - blocks until done. Match web: everything ready before showing UI. */
   private async decodeWaveformAndSetBuffer(filename: string, durationSeconds: number): Promise<void> {
     if (!this.howl) return;
-    const DEFAULT_ZOOM = 5;
+    const DEFAULT_ZOOM = getDefaultZoomLevel();
     const store = useAppStore.getState();
     try {
       if (this.originalDataArray?.length) {
@@ -1111,8 +1308,8 @@ export class HowlerAudioEngine {
       store.setDuration(this.duration);
       store.setViewport(0, this.duration / DEFAULT_ZOOM);
       store.setZoomLevel(DEFAULT_ZOOM);
-      store.setAudioBuffer(this.audioBuffer ?? null);
-      if (!this.audioBuffer) store.setAudioReadyForPlayback();
+      if (this.audioBuffer) store.setAudioBuffer(this.audioBuffer);
+      else store.setAudioReadyForPlayback();
       // Prime AudioContext for first play (user gesture from file picker still valid)
       await this.resumeAudioContext();
     } catch {

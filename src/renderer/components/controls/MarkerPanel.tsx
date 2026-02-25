@@ -2,6 +2,7 @@
 // Marker management panel (List + Editor)
 
 import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAppStore } from '../../store/store';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { MarkerManager, PRESET_COLORS } from '../markers/MarkerManager';
@@ -56,6 +57,16 @@ const MarkerPanel: React.FC = () => {
   const audioDuration = useAppStore((state) => state.audio.duration || 0);
   
   const isMobile = useIsMobile();
+
+  // Mobile/tablet detection for edit popup (like speed popup)
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const isTablet = windowWidth >= 768 && windowWidth <= 1024;
+  const isMobileOrTablet = isMobile || isTablet;
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // TASK 13: Get AudioEngine methods for applying marker settings
   const { setSpeed, seek, setLoop, disableLoop } = useAudioEngine();
@@ -158,7 +169,7 @@ const MarkerPanel: React.FC = () => {
   // Handle deactivate marker with smooth animation
   const handleDeactivateMarker = useCallback(() => {
     // Add smooth transition by animating the deactivation
-    const markerPanel = document.querySelector('.marker-panel');
+    const markerPanel = document.querySelector('.marker-panel') as HTMLElement | null;
     if (markerPanel) {
       markerPanel.style.transition = 'all 0.3s ease';
     }
@@ -199,8 +210,8 @@ const MarkerPanel: React.FC = () => {
     }
   }, [audioDuration, currentTime]);
 
-  // TASK 15: Keyboard shortcut for marker creation (M key)
-  // NOTE: M key handler is now in App.tsx to centralize keyboard shortcuts
+  // TASK 15: Keyboard shortcut for marker creation (N key)
+  // NOTE: Global key handlers are centralized in App.tsx
 
   // Handle editing marker
   const handleStartEdit = useCallback((marker: Marker, e: React.MouseEvent) => {
@@ -316,6 +327,20 @@ const MarkerPanel: React.FC = () => {
     }
   }, [editingMarkerId]);
 
+  // Toggle loop on marker - one click, no need to open Edit
+  const handleToggleLoop = useCallback((marker: Marker, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newLoop = !marker.loop;
+    MarkerManager.updateMarker(marker.id, { loop: newLoop });
+    if (marker.id === selectedMarkerId) {
+      if (newLoop) {
+        setLoop(marker.start, marker.end);
+      } else {
+        disableLoop();
+      }
+    }
+  }, [selectedMarkerId, setLoop, disableLoop]);
+
   // Keyboard shortcut: Delete key to delete active marker
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -390,16 +415,16 @@ const MarkerPanel: React.FC = () => {
           flexWrap: 'wrap',
           justifyContent: isMobile ? 'flex-end' : 'flex-start',
         }}>
-          {/* Marker navigation - only when a marker is active (pronounced, amber for visibility) */}
-          {selectedMarkerId && (() => {
-            const activeMarker = MarkerManager.getActiveMarker();
+          {/* Marker navigation - show when markers exist (navigate even without selection) */}
+          {sortedMarkers.length > 0 && (() => {
             const prevMarker = MarkerManager.getPreviousMarker();
             const nextMarker = MarkerManager.getNextMarker();
             const btnSize = isMobile ? 40 : 34;
             const navBtn = (onClick: () => void, title: string, guideText: string, tooltipId: string, icon: React.ReactNode, disabled?: boolean) => (
               <FirstTimeTooltip key={tooltipId} id={tooltipId} guideText={guideText} disabled={disabled} isLightMode={isLightMode}>
                 <button
-                  onClick={(e) => { e.stopPropagation(); onClick(); }}
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
                   disabled={disabled}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -433,21 +458,7 @@ const MarkerPanel: React.FC = () => {
             return (
               <>
                 {navBtn(
-                  () => activeMarker && seek(activeMarker.start),
-                  'Go to marker start',
-                  'Jump to the start of this marker',
-                  'marker_nav_start',
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                )}
-                {navBtn(
-                  () => activeMarker && seek(activeMarker.end),
-                  'Go to marker end',
-                  'Jump to the end of this marker',
-                  'marker_nav_end',
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                )}
-                {navBtn(
-                  () => prevMarker && handleMarkerClick(prevMarker),
+                  () => { if (prevMarker) handleMarkerClick(prevMarker); },
                   'Previous marker',
                   'Go to the previous marker in the list',
                   'marker_nav_prev',
@@ -455,7 +466,7 @@ const MarkerPanel: React.FC = () => {
                   !prevMarker
                 )}
                 {navBtn(
-                  () => nextMarker && handleMarkerClick(nextMarker),
+                  () => { if (nextMarker) handleMarkerClick(nextMarker); },
                   'Next marker',
                   'Go to the next marker in the list',
                   'marker_nav_next',
@@ -559,7 +570,7 @@ const MarkerPanel: React.FC = () => {
               e.currentTarget.style.transform = 'scale(1)';
             }
           }}
-          title={audioDuration > 0 ? 'Create new marker (M)' : 'Load audio file first'}
+          title={audioDuration > 0 ? 'Create new marker (N)' : 'Load audio file first'}
         >
           <svg
             width="14"
@@ -694,8 +705,8 @@ const MarkerPanel: React.FC = () => {
                 }
               }}
             >
-              {/* Mobile Edit Mode - Multi-row vertical layout */}
-              {isMobile && editingMarkerId === marker.id && editFormData ? (
+              {/* Mobile Edit Mode - inline only on desktop; mobile/tablet use popup below */}
+              {isMobile && editingMarkerId === marker.id && editFormData && !isMobileOrTablet ? (
                 <div style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -1007,14 +1018,23 @@ const MarkerPanel: React.FC = () => {
                   <span style={{ color: textSecondary, fontFamily: 'monospace', fontSize: '0.8rem' }}>
                     {markerSpeed.toFixed(1)}x
                   </span>
-                  {hasLoop && (
-                    <span style={{ color: '#00AA00', fontSize: '0.75rem', display: 'flex', alignItems: 'center' }} title="Loop enabled">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
-                        <path fillRule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
-                      </svg>
-                    </span>
-                  )}
+                  <button
+                    onClick={(e) => handleToggleLoop(marker, e)}
+                    style={{
+                      padding: '0.15rem',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: hasLoop ? '#00AA00' : (isLightMode ? '#CC4444' : '#FF6666'),
+                    }}
+                    title={hasLoop ? 'Loop enabled (click to disable, L for active marker)' : 'Loop disabled (click to enable, L for active marker)'}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
               ) : (
@@ -1276,7 +1296,7 @@ const MarkerPanel: React.FC = () => {
                       userSelect: 'none',
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    title="Loop this marker section"
+                    title="Loop this marker section (L toggles active marker loop)"
                   >
                     <input
                       type="checkbox"
@@ -1296,14 +1316,23 @@ const MarkerPanel: React.FC = () => {
                     </span>
                   </label>
                 ) : (
-                  hasLoop && (
-                    <div style={{ color: '#00AA00', fontSize: '0.7rem', display: 'flex', alignItems: 'center' }} title="Loop enabled">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
-                        <path fillRule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
-                      </svg>
-                    </div>
-                  )
+                  <button
+                    onClick={(e) => handleToggleLoop(marker, e)}
+                    style={{
+                      padding: '0.15rem',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: hasLoop ? '#00AA00' : (isLightMode ? '#CC4444' : '#FF6666'),
+                    }}
+                    title={hasLoop ? 'Loop enabled (click to disable, L for active marker)' : 'Loop disabled (click to enable, L for active marker)'}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+                    </svg>
+                  </button>
                 )}
 
                 {/* Edit/Save buttons and Delete button */}
@@ -1361,31 +1390,8 @@ const MarkerPanel: React.FC = () => {
                         {isSelected && (
                           <>
                             <button
-                              onClick={(e) => { e.stopPropagation(); seek(marker.start); }}
-                              style={{
-                                width: isMobile ? '32px' : '24px', height: isMobile ? '32px' : '24px', minWidth: isMobile ? '32px' : '24px', padding: 0,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: isMobile ? (isLightMode ? 'rgba(0,102,68,0.1)' : 'rgba(0,170,102,0.15)') : 'transparent', border: `1px solid ${borderColor}`, borderRadius: '6px',
-                                color: isLightMode ? '#006644' : '#00AA66', cursor: 'pointer', touchAction: 'manipulation',
-                              }}
-                              title="Go to marker start"
-                            >
-                              <svg width={isMobile ? "14" : "12"} height={isMobile ? "14" : "12"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); seek(marker.end); }}
-                              style={{
-                                width: isMobile ? '32px' : '24px', height: isMobile ? '32px' : '24px', minWidth: isMobile ? '32px' : '24px', padding: 0,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: isMobile ? (isLightMode ? 'rgba(0,102,68,0.1)' : 'rgba(0,170,102,0.15)') : 'transparent', border: `1px solid ${borderColor}`, borderRadius: '6px',
-                                color: isLightMode ? '#006644' : '#00AA66', cursor: 'pointer', touchAction: 'manipulation',
-                              }}
-                              title="Go to marker end"
-                            >
-                              <svg width={isMobile ? "14" : "12"} height={isMobile ? "14" : "12"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); const prev = MarkerManager.getPreviousMarker(); prev && handleMarkerClick(prev); }}
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); const prev = MarkerManager.getPreviousMarker(); prev && handleMarkerClick(prev); }}
                               style={{
                                 width: isMobile ? '32px' : '24px', height: isMobile ? '32px' : '24px', minWidth: isMobile ? '32px' : '24px', padding: 0,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1397,7 +1403,8 @@ const MarkerPanel: React.FC = () => {
                               <svg width={isMobile ? "14" : "12"} height={isMobile ? "14" : "12"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); const next = MarkerManager.getNextMarker(); next && handleMarkerClick(next); }}
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); const next = MarkerManager.getNextMarker(); next && handleMarkerClick(next); }}
                               style={{
                                 width: isMobile ? '32px' : '24px', height: isMobile ? '32px' : '24px', minWidth: isMobile ? '32px' : '24px', padding: 0,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1517,8 +1524,281 @@ const MarkerPanel: React.FC = () => {
         })}
       </div>
 
+      {/* Marker Edit Popup - mobile/tablet only (like speed popup) */}
+      {isMobileOrTablet && editingMarkerId && editFormData && (() => {
+        const marker = sortedMarkers.find((m) => m.id === editingMarkerId);
+        if (!marker) return null;
+        const popupPadding = isMobile ? 20 : 18;
+        const popupWidth = isMobile ? Math.min(340, window.innerWidth - 32) : Math.min(320, window.innerWidth - 40);
+        const popupContent = (
+          <div
+            style={{
+              padding: popupPadding,
+              width: popupWidth,
+              maxWidth: 'calc(100vw - 24px)',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
+              background: isLightMode ? 'rgba(228, 235, 245, 0.98)' : 'rgba(26, 26, 26, 0.98)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: isLightMode ? '1px solid rgba(0, 0, 0, 0.1)' : '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: isMobile ? 16 : 14,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              animation: 'fadeInScale 0.2s ease-out',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: textColor, marginBottom: 4 }}>
+              Edit Marker
+            </div>
+            {/* Color + Name */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const currentIndex = PRESET_COLORS.indexOf(editFormData.color as typeof PRESET_COLORS[number]);
+                  const nextIndex = (currentIndex + 1) % PRESET_COLORS.length;
+                  setEditFormData({ ...editFormData, color: PRESET_COLORS[nextIndex] });
+                }}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background: editFormData.color,
+                  border: `2px solid ${isLightMode ? '#006644' : '#00AA66'}`,
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                }}
+                title="Tap to change color"
+              />
+              <input
+                type="text"
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                placeholder="Marker name"
+                style={{
+                  flex: 1,
+                  padding: '12px 14px',
+                  background: 'var(--neu-bg-base)',
+                  border: `2px solid ${isLightMode ? '#006644' : '#00AA66'}`,
+                  borderRadius: 8,
+                  color: textColor,
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  boxShadow: 'var(--neu-pressed)',
+                }}
+              />
+            </div>
+            {/* Time Range */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={{ color: textSecondary, fontSize: '0.8rem', fontWeight: 600 }}>Time Range</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ color: textSecondary, fontSize: '0.75rem' }}>Start</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={599}
+                  value={startMinStr}
+                  onChange={(e) => setStartMinStr(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                  onBlur={commitTimeInputs}
+                  placeholder="m"
+                  style={{ width: 44, padding: '10px 8px', background: 'var(--neu-bg-base)', border: 'none', borderRadius: 6, color: textColor, fontSize: '0.9rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
+                />
+                <span style={{ color: textSecondary, fontSize: '0.85rem' }}>:</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={startSecStr}
+                  onChange={(e) => setStartSecStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  onBlur={commitTimeInputs}
+                  placeholder="s"
+                  style={{ width: 40, padding: '10px 8px', background: 'var(--neu-bg-base)', border: 'none', borderRadius: 6, color: textColor, fontSize: '0.9rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
+                />
+                <span style={{ color: textSecondary, marginLeft: 4 }}>—</span>
+                <span style={{ color: textSecondary, fontSize: '0.75rem' }}>End</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={599}
+                  value={endMinStr}
+                  onChange={(e) => setEndMinStr(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                  onBlur={commitTimeInputs}
+                  placeholder="m"
+                  style={{ width: 44, padding: '10px 8px', background: 'var(--neu-bg-base)', border: 'none', borderRadius: 6, color: textColor, fontSize: '0.9rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
+                />
+                <span style={{ color: textSecondary, fontSize: '0.85rem' }}>:</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={endSecStr}
+                  onChange={(e) => setEndSecStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                  onBlur={commitTimeInputs}
+                  placeholder="s"
+                  style={{ width: 40, padding: '10px 8px', background: 'var(--neu-bg-base)', border: 'none', borderRadius: 6, color: textColor, fontSize: '0.9rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
+                />
+              </div>
+            </div>
+            {/* Speed + Loop */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ color: textSecondary, fontSize: '0.85rem', fontWeight: 600 }}>Speed:</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const newSpeed = Math.max(0.3, editFormData.speed - 0.1);
+                    setEditFormData({ ...editFormData, speed: Math.round(newSpeed * 10) / 10 });
+                  }}
+                  disabled={editFormData.speed <= 0.3}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)',
+                    border: `1px solid ${borderColor}`,
+                    borderRadius: 8,
+                    color: editFormData.speed <= 0.3 ? textSecondary : textColor,
+                    cursor: editFormData.speed <= 0.3 ? 'not-allowed' : 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                  }}
+                >−</button>
+                <span style={{ color: textColor, fontFamily: 'monospace', fontSize: '1rem', fontWeight: 700, minWidth: 48, textAlign: 'center' }}>
+                  {editFormData.speed.toFixed(1)}x
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const newSpeed = Math.min(4.0, editFormData.speed + 0.1);
+                    setEditFormData({ ...editFormData, speed: Math.round(newSpeed * 10) / 10 });
+                  }}
+                  disabled={editFormData.speed >= 4.0}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    padding: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)',
+                    border: `1px solid ${borderColor}`,
+                    borderRadius: 8,
+                    color: editFormData.speed >= 4.0 ? textSecondary : textColor,
+                    cursor: editFormData.speed >= 4.0 ? 'not-allowed' : 'pointer',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                  }}
+                >+</button>
+              </div>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  color: textColor,
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={editFormData.loop}
+                  onChange={(e) => setEditFormData({ ...editFormData, loop: e.target.checked })}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    cursor: 'pointer',
+                    accentColor: isLightMode ? '#006644' : '#00AA66',
+                  }}
+                />
+                <span style={{ color: editFormData.loop ? '#00AA00' : textSecondary, fontWeight: 600 }}>Loop</span>
+              </label>
+            </div>
+            {/* Save / Cancel */}
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCancelEdit();
+                }}
+                style={{
+                  padding: '12px 20px',
+                  background: 'var(--neu-bg-base)',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: textColor,
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: 'var(--neu-pressed)',
+                  touchAction: 'manipulation',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSaveEdit(marker.id);
+                }}
+                style={{
+                  padding: '12px 20px',
+                  background: isLightMode ? '#006644' : '#00AA66',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: '#FFFFFF',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  boxShadow: 'var(--neu-pressed)',
+                  touchAction: 'manipulation',
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        );
+        return createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(2px)',
+              zIndex: 10000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+              boxSizing: 'border-box',
+            }}
+            onClick={() => handleCancelEdit()}
+          >
+            {popupContent}
+          </div>,
+          document.body
+        );
+      })()}
+
       {/* TASK 20: Custom Scrollbar Styling */}
       <style>{`
+        @keyframes fadeInScale {
+          from { opacity: 0; transform: scale(0.95) translateY(4px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
         .marker-list-container::-webkit-scrollbar {
           width: 8px;
         }

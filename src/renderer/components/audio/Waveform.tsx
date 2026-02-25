@@ -5,6 +5,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '../../store/store';
 import { useAudioEngine } from './useAudioEngine';
 import { useSmoothViewport } from '../../hooks/useSmoothViewport';
+import { getDefaultZoomLevel, MOBILE_TABLET_DEFAULT_ZOOM } from '../../utils/defaultZoom';
 
 /**
  * Peak data structure
@@ -1018,7 +1019,7 @@ const Waveform: React.FC = () => {
   }, [duration, seek, viewportStart, viewportEnd]);
 
   // Smooth viewport animation hook
-  const { animateScrollToTime } = useSmoothViewport();
+  const { animateScrollToTime, animateZoom } = useSmoothViewport();
   const lastAutoScrollTimeRef = useRef<number>(0);
 
   /**
@@ -1050,23 +1051,25 @@ const Waveform: React.FC = () => {
     }
   }, [currentTime, isPlaying, zoomLevel, viewportStart, viewportEnd, duration, animateScrollToTime]);
 
-  // Initial zoom shows 20% (1/5) of audio on both mobile and desktop
+  // Initial zoom defaults by device: desktop=5x, mobile/tablet=10x
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const DEFAULT_ZOOM = 5; // Show 1/5 (20%) of the audio initially
-  const MOBILE_DEFAULT_ZOOM = 5; // Same for mobile
+  const DEFAULT_ZOOM = getDefaultZoomLevel();
+  const MOBILE_DEFAULT_ZOOM = MOBILE_TABLET_DEFAULT_ZOOM;
 
   /**
    * Initialize viewport when duration changes (new audio loaded)
-   * Both mobile and desktop: start with 20% view (zoom level 5)
+   * Device defaults on load:
+   * - desktop/laptop: 5x
+   * - mobile/tablet/PWA web: 10x
    */
   useEffect(() => {
     if (duration > 0 && (viewportEnd === 0 || viewportEnd > duration)) {
-      // Start with 20% (1/5) of audio visible
-      const initialEnd = duration / DEFAULT_ZOOM;
+      const initialZoom = DEFAULT_ZOOM;
+      const initialEnd = duration / initialZoom;
       setViewport(0, initialEnd);
-      setZoomLevel(DEFAULT_ZOOM);
+      setZoomLevel(initialZoom);
     }
-  }, [duration, viewportEnd, setViewport, setZoomLevel]);
+  }, [duration, viewportEnd, setViewport, setZoomLevel, DEFAULT_ZOOM]);
   
   // Pinch-to-zoom and single-finger scroll for mobile/tablet - using refs for native event listeners
   const lastTouchDistanceRef = useRef<number | null>(null);
@@ -1135,16 +1138,18 @@ const Waveform: React.FC = () => {
         const touch2 = e.touches[1];
         const newDistance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
         
-        const scale = newDistance / lastTouchDistanceRef.current;
+        const rawScale = newDistance / lastTouchDistanceRef.current;
+        // Amplify pinch for bigger zoom response (exponent 1.5 makes pinch feel more responsive)
+        const scale = Math.pow(rawScale, 1.5);
         
-        if (Math.abs(scale - 1) > 0.02) { // Threshold to avoid jitter
+        if (Math.abs(scale - 1) > 0.01) { // Threshold to avoid jitter
           const currentZoom = zoomLevelRef.current || MOBILE_DEFAULT_ZOOM;
           let newZoom = currentZoom * scale;
           
           // Clamp zoom: min 4 (1/4 view), max 50
           newZoom = Math.max(MOBILE_DEFAULT_ZOOM, Math.min(50, newZoom));
           
-          if (Math.abs(newZoom - currentZoom) > 0.1) {
+          if (Math.abs(newZoom - currentZoom) > 0.05) {
             // Calculate new viewport centered on pinch point
             const centerTime = pinchCenterTimeRef.current ?? currentTimeRef.current;
             const dur = durationRef.current;
@@ -1224,16 +1229,43 @@ const Waveform: React.FC = () => {
     };
   }, [setViewport, setZoomLevel]);
 
-  // Two-finger horizontal scroll support (trackpad on Mac/Windows, mouse wheel horizontal)
+  // Two-finger horizontal scroll + trackpad/mouse wheel zoom (desktop/larger devices)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     
     const handleWheel = (e: WheelEvent) => {
-      // Handle horizontal scrolling (two-finger swipe on trackpad or shift+scroll)
       const deltaX = e.deltaX || (e.shiftKey ? e.deltaY : 0);
+      const deltaY = e.deltaY;
+      const isBiggerDevice = typeof window !== 'undefined' && window.innerWidth > 768;
       
-      if (Math.abs(deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+      // Zoom: Ctrl+scroll or trackpad pinch (ctrlKey set by browser for pinch) on larger devices
+      if (isBiggerDevice && (e.ctrlKey || e.metaKey) && Math.abs(deltaY) > 0) {
+        e.preventDefault();
+        const dur = durationRef.current;
+        if (dur <= 0) return;
+        
+        const currentZoom = zoomLevelRef.current || 1;
+        const zoomFactor = deltaY > 0 ? 1 / 1.6 : 1.6;
+        let newZoom = currentZoom * zoomFactor;
+        newZoom = Math.max(1, Math.min(50, newZoom));
+        
+        if (Math.abs(newZoom - currentZoom) < 0.01) return;
+        
+        // Zoom centered on cursor position
+        const rect = container.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const vpStart = viewportStartRef.current;
+        const vpEnd = viewportEndRef.current > 0 ? viewportEndRef.current : dur;
+        const visibleDuration = vpEnd - vpStart;
+        const centerTime = vpStart + (x / rect.width) * visibleDuration;
+        
+        animateZoom(newZoom, centerTime, { duration: 150, easing: 'easeOutCubic' });
+        return;
+      }
+      
+      // Horizontal scrolling (two-finger swipe on trackpad or shift+scroll)
+      if (Math.abs(deltaX) > Math.abs(deltaY) || e.shiftKey) {
         e.preventDefault();
         
         const dur = durationRef.current;
@@ -1268,7 +1300,7 @@ const Waveform: React.FC = () => {
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [setViewport]);
+  }, [setViewport, animateZoom]);
 
   return (
     <div 
@@ -1385,9 +1417,6 @@ const Waveform: React.FC = () => {
 };
 
 export default Waveform;
-
-
-
 
 
 

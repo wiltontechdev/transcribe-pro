@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/store';
 
 // Kenyan colors
 const KENYAN_GREEN = '#006644';
+const KENYAN_RED = '#DE2910';
 const KENYAN_WHITE = '#FFFFFF';
 const HANDWRITTEN_FONT = "'Merienda', 'Caveat', cursive";
 
