@@ -2821,3 +2821,99 @@ button, .button, .neu-btn, .neu-icon-btn, .neu-play-btn, .neu-tab {
 }
 
 /* ====== END MOBILE RESPONSIVE DESIGN ====== */
+
+/* Rotated phone layout: waveform on top, timeline 75%, playback/details 25% */
+.app-container.mobile-layout.mobile-landscape-layout .main-content.mobile-content.mobile-landscape-content {
+  overflow: hidden !important;
+  gap: 6px !important;
+  padding: 0 6px 6px !important;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-panel.waveform-mobile-section.mobile-landscape-waveform {
+  flex: 0 0 auto !important;
+  height: clamp(112px, 34vh, 156px) !important;
+  min-height: clamp(112px, 34vh, 156px) !important;
+  max-height: clamp(112px, 34vh, 156px) !important;
+  margin: 0 6px !important;
+  padding: 4px 4px 0 4px !important;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-bottom {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+  gap: 6px;
+  padding: 0 6px;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-primary,
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-sidebar {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-primary .mobile-panel.timeline-mobile-section {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 4px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  border-radius: 10px !important;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-primary .mobile-panel.timeline-mobile-section > div,
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-primary .mobile-panel.timeline-mobile-section .marker-timeline,
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-primary .mobile-panel.timeline-mobile-section .marker-timeline > div {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-sidebar .mobile-panel.playback-section.mobile-landscape-playback {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 6px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  border-radius: 10px !important;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-sidebar .playback-panel {
+  min-height: 100% !important;
+  height: auto !important;
+  padding: 4px !important;
+  gap: 4px !important;
+  justify-content: flex-start !important;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-sidebar .playback-transport-controls {
+  gap: 4px !important;
+  padding: 0 !important;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-sidebar .playback-time-display {
+  font-size: 0.7rem !important;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-sidebar .mobile-panel.playback-section button,
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-sidebar .playback-panel button {
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 36px !important;
+  max-height: 36px !important;
+  padding: 3px !important;
+}
+
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-sidebar .mobile-panel.playback-section button svg,
+.app-container.mobile-layout.mobile-landscape-layout .mobile-landscape-sidebar .playback-panel button svg {
+  width: 14px !important;
+  height: 14px !important;
+}

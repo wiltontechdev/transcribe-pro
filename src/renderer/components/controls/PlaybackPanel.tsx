@@ -16,7 +16,11 @@ const KENYAN_WHITE = '#FFFFFF';
 // Handwritten font family - Merienda from Google Fonts
 const HANDWRITTEN_FONT = "'Merienda', 'Caveat', 'Patrick Hand', cursive";
 
-const PlaybackPanel: React.FC = () => {
+interface PlaybackPanelProps {
+  forceCompactLayout?: boolean;
+}
+
+const PlaybackPanel: React.FC<PlaybackPanelProps> = ({ forceCompactLayout = false }) => {
   const { 
     play, 
     pause, 
@@ -32,9 +36,11 @@ const PlaybackPanel: React.FC = () => {
   
   // Mobile and tablet detection for responsive speed popup
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
-  const isMobile = windowWidth < 768;
-  const isTablet = windowWidth >= 768 && windowWidth <= 1024;
+  const isMobile = forceCompactLayout || windowWidth < 768;
+  const isTablet = !forceCompactLayout && windowWidth >= 768 && windowWidth <= 1024;
   const isMobileOrTablet = isMobile || isTablet;
+  const isCompactMobile = isMobile && (forceCompactLayout || windowWidth <= 420);
+  const isTinyMobile = isMobile && (forceCompactLayout || windowWidth <= 360);
   
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -398,7 +404,7 @@ const PlaybackPanel: React.FC = () => {
       )}
 
         {/* Time Progress Display - Compact on mobile */}
-      <div className="mx-auto w-full max-w-full px-1" style={{
+      <div className="playback-time-display mx-auto w-full max-w-full px-1" style={{
         display: 'flex',
         flexDirection: isMobile ? 'row' : 'column',
         alignItems: isMobile ? 'center' : 'stretch',
@@ -497,7 +503,7 @@ const PlaybackPanel: React.FC = () => {
       </div>
 
       {/* Main Playback Controls - Compact on mobile */}
-      <div className="mx-auto flex flex-wrap justify-center items-center gap-1.5 px-2" style={{
+      <div className="playback-transport-controls mx-auto flex flex-wrap justify-center items-center gap-1.5 px-2" style={{
         flexShrink: 0,
         position: 'relative',
         zIndex: 1,
