@@ -30,12 +30,15 @@ export interface UpdateStatusEvent {
   data?: any;
 }
 
+export type NativeMenuAction = 'save-project' | 'save-project-as';
+
 export interface ElectronAPI {
   platform: string;
   isElectron: boolean;
   
   // Window controls
   closeWindow: () => void;
+  quit: () => void;
   minimizeWindow: () => void;
   maximizeWindow: () => void;
   
@@ -68,6 +71,7 @@ export interface ElectronAPI {
   getUpdateStatus: () => Promise<UpdateStatus>;
   openReleaseNotes: (url: string) => Promise<void>;
   onUpdateStatus: (callback: (event: UpdateStatusEvent) => void) => () => void;
+  onMenuAction?: (callback: (action: NativeMenuAction) => void) => () => void;
   onArrowKey?: (callback: (data: { key: string }) => void) => () => void;
   setCaptureArrows?: (enabled: boolean) => void;
 }

@@ -9,39 +9,41 @@ const KENYAN_RED = '#DE2910';
 interface QuickStartGuideProps {
   isLightMode: boolean;
   isMobile: boolean;
+  compactMode?: boolean;
+  tinyMode?: boolean;
 }
 
 // Animated icons for each step
-const LoadAudioIcon: React.FC<{ color: string }> = ({ color }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon load-icon">
+const LoadAudioIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon load-icon">
     <path d="M9 18V5l12-2v13"/>
     <circle cx="6" cy="18" r="3"/>
     <circle cx="18" cy="16" r="3"/>
   </svg>
 );
 
-const AddMarkerIcon: React.FC<{ color: string }> = ({ color }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon marker-icon">
+const AddMarkerIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon marker-icon">
     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
     <circle cx="12" cy="10" r="3"/>
   </svg>
 );
 
-const SpeedIcon: React.FC<{ color: string }> = ({ color }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon speed-icon">
+const SpeedIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon speed-icon">
     <circle cx="12" cy="12" r="10"/>
     <polyline points="12 6 12 12 16 14"/>
   </svg>
 );
 
-const NavigateIcon: React.FC<{ color: string }> = ({ color }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon navigate-icon">
+const NavigateIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon navigate-icon">
     <path d="M2 12h2l2-5 4 10 4-8 2 3h6"/>
   </svg>
 );
 
-const ExportIcon: React.FC<{ color: string }> = ({ color }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon export-icon">
+const ExportIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="quick-start-icon export-icon">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
     <polyline points="7 10 12 15 17 10"/>
     <line x1="12" y1="15" x2="12" y2="3"/>
@@ -86,7 +88,12 @@ const steps = [
   },
 ];
 
-export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, isMobile }) => {
+export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({
+  isLightMode,
+  isMobile,
+  compactMode = false,
+  tinyMode = false,
+}) => {
   // Always start collapsed - user must click to expand
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -94,18 +101,35 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
   const borderColor = isLightMode ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
   const textColor = isLightMode ? '#2d3748' : '#ffffff';
   const mutedColor = isLightMode ? '#718096' : 'rgba(255, 255, 255, 0.6)';
+  const headerPadding = tinyMode ? '0.65rem 0.7rem' : compactMode ? '0.7rem 0.8rem' : isMobile ? '0.75rem' : '1rem';
+  const headerRadius = compactMode ? '12px' : '14px';
+  const headerIconBoxSize = tinyMode ? 30 : compactMode ? 32 : isMobile ? 36 : 40;
+  const headerIconSize = tinyMode ? 15 : compactMode ? 16 : 18;
+  const titleSize = tinyMode ? '0.8rem' : compactMode ? '0.86rem' : isMobile ? '0.95rem' : '1.05rem';
+  const subtitleSize = tinyMode ? '0.62rem' : compactMode ? '0.66rem' : isMobile ? '0.7rem' : '0.8rem';
+  const chevronSize = compactMode ? 18 : 20;
+  const contentPadding = tinyMode ? '0.75rem' : compactMode ? '0.85rem' : isMobile ? '1rem' : '1.25rem';
+  const contentGap = tinyMode ? '0.65rem' : compactMode ? '0.75rem' : isMobile ? '1rem' : '0.75rem';
+  const stepPadding = tinyMode ? '0.6rem' : compactMode ? '0.65rem' : isMobile ? '0.75rem' : '0.5rem';
+  const stepGap = tinyMode ? '0.7rem' : compactMode ? '0.8rem' : '1rem';
+  const numberSize = tinyMode ? 24 : compactMode ? 26 : isMobile ? 28 : 24;
+  const numberFontSize = tinyMode ? '0.7rem' : compactMode ? '0.74rem' : isMobile ? '0.8rem' : '0.75rem';
+  const stepIconBoxSize = tinyMode ? 34 : compactMode ? 38 : isMobile ? 44 : 40;
+  const stepIconSize = tinyMode ? 18 : compactMode ? 20 : 24;
+  const stepTitleSize = tinyMode ? '0.78rem' : compactMode ? '0.82rem' : isMobile ? '0.9rem' : '0.85rem';
+  const stepDescriptionSize = tinyMode ? '0.66rem' : compactMode ? '0.7rem' : '0.75rem';
 
   return (
-    <div style={{ width: '100%', marginTop: '1rem' }}>
+    <div style={{ width: '100%', marginTop: compactMode ? '0.85rem' : '1rem' }}>
       {/* Header/Toggle Button */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         style={{
           width: '100%',
-          padding: isMobile ? '0.75rem' : '1rem',
+          padding: headerPadding,
           background: bgColor,
           border: `1px solid ${borderColor}`,
-          borderRadius: '14px',
+          borderRadius: headerRadius,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -114,12 +138,12 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
           transition: 'all 0.3s ease',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: compactMode ? '0.55rem' : '0.75rem' }}>
           <div
             style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
+              width: `${headerIconBoxSize}px`,
+              height: `${headerIconBoxSize}px`,
+              borderRadius: compactMode ? '9px' : '10px',
               background: `linear-gradient(135deg, ${KENYAN_GREEN}, ${KENYAN_RED})`,
               display: 'flex',
               alignItems: 'center',
@@ -127,7 +151,7 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
               animation: 'quickStartIconPulse 2s ease-in-out infinite',
             }}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+            <svg width={headerIconSize} height={headerIconSize} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
               <circle cx="12" cy="12" r="10"/>
               <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
               <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -137,14 +161,14 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
             <p style={{
               margin: 0,
               fontWeight: '600',
-              fontSize: isMobile ? '0.95rem' : '1.05rem',
+              fontSize: titleSize,
               color: textColor,
             }}>
               Quick Start Guide
             </p>
             <p style={{
               margin: '2px 0 0',
-              fontSize: isMobile ? '0.7rem' : '0.8rem',
+              fontSize: subtitleSize,
               color: mutedColor,
             }}>
               Learn how to use Transcribe Pro
@@ -152,8 +176,8 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
           </div>
         </div>
         <svg
-          width="20"
-          height="20"
+          width={chevronSize}
+          height={chevronSize}
           viewBox="0 0 24 24"
           fill="none"
           stroke={mutedColor}
@@ -171,10 +195,10 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
       {isExpanded && (
         <div
           style={{
-            marginTop: '0.75rem',
-            padding: isMobile ? '1rem' : '1.25rem',
+            marginTop: compactMode ? '0.6rem' : '0.75rem',
+            padding: contentPadding,
             background: bgColor,
-            borderRadius: '14px',
+            borderRadius: headerRadius,
             border: `1px solid ${borderColor}`,
             animation: 'quickStartExpand 0.3s ease-out',
           }}
@@ -182,7 +206,7 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
           <div style={{ 
             display: 'flex', 
             flexDirection: 'column', 
-            gap: isMobile ? '1rem' : '0.75rem',
+            gap: contentGap,
           }}>
             {steps.map((step, index) => (
               <div
@@ -190,10 +214,10 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
                 style={{
                   display: 'flex',
                   alignItems: isMobile ? 'flex-start' : 'center',
-                  gap: '1rem',
-                  padding: isMobile ? '0.75rem' : '0.5rem',
+                  gap: stepGap,
+                  padding: stepPadding,
                   background: isLightMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.03)',
-                  borderRadius: '12px',
+                  borderRadius: compactMode ? '10px' : '12px',
                   animation: `quickStartStepSlide 0.3s ease-out ${index * 0.1}s backwards`,
                 }}
               >
@@ -201,20 +225,20 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
                 <div style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: '0.75rem',
+                  gap: compactMode ? '0.55rem' : '0.75rem',
                   flexShrink: 0,
                 }}>
                   <div
                     style={{
-                      width: isMobile ? '28px' : '24px',
-                      height: isMobile ? '28px' : '24px',
+                      width: `${numberSize}px`,
+                      height: `${numberSize}px`,
                       borderRadius: '50%',
                       background: `${step.color}20`,
                       color: step.color,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: isMobile ? '0.8rem' : '0.75rem',
+                      fontSize: numberFontSize,
                       fontWeight: '700',
                     }}
                   >
@@ -222,16 +246,16 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
                   </div>
                   <div
                     style={{
-                      width: isMobile ? '44px' : '40px',
-                      height: isMobile ? '44px' : '40px',
-                      borderRadius: '12px',
+                      width: `${stepIconBoxSize}px`,
+                      height: `${stepIconBoxSize}px`,
+                      borderRadius: compactMode ? '10px' : '12px',
                       background: `linear-gradient(135deg, ${step.color}15, ${step.color}30)`,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <step.Icon color={step.color} />
+                    <step.Icon color={step.color} size={stepIconSize} />
                   </div>
                 </div>
 
@@ -240,14 +264,14 @@ export const QuickStartGuide: React.FC<QuickStartGuideProps> = ({ isLightMode, i
                   <p style={{
                     margin: 0,
                     fontWeight: '600',
-                    fontSize: isMobile ? '0.9rem' : '0.85rem',
+                    fontSize: stepTitleSize,
                     color: textColor,
                   }}>
                     {step.title}
                   </p>
                   <p style={{
                     margin: '3px 0 0',
-                    fontSize: isMobile ? '0.75rem' : '0.75rem',
+                    fontSize: stepDescriptionSize,
                     color: mutedColor,
                     lineHeight: 1.4,
                   }}>

@@ -16,6 +16,7 @@ import LoadingSpinner from './LoadingSpinner';
 import WorkspaceLayoutModal from './WorkspaceLayoutModal';
 import RecentProjectsModal from './RecentProjectsModal';
 import { useSmoothViewport } from '../../hooks/useSmoothViewport';
+import { isIOSDevice } from '../../utils/platform';
 
 // Kenyan colors
 const KENYAN_RED = '#DE2910';
@@ -322,6 +323,7 @@ const EditableProjectName: React.FC<{
 };
 
 const MenuBar: React.FC = () => {
+  const [isIOS] = useState(() => isIOSDevice());
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [pitch, setPitch] = useState(0);
@@ -331,6 +333,8 @@ const MenuBar: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number } | null>(null);
+  const electronAPI = typeof window !== 'undefined' ? window.electronAPI : undefined;
+  const shortcutModifier = electronAPI?.platform === 'darwin' ? 'Cmd' : 'Ctrl';
   
   // Store state
   const theme = useAppStore((state) => state.theme);
@@ -538,6 +542,12 @@ const MenuBar: React.FC = () => {
 
   const handleLoadProject = async () => {
     try {
+      if (isIOS) {
+        showToast('Use My Projects on iPhone and iPad to open saved work.', 'info', 3200);
+        setOpenMenu(null);
+        return;
+      }
+
       // Check if project has unsaved changes
       const hasUnsavedChanges = isAudioLoaded && !projectSaver.hasSavedProject();
       
@@ -593,7 +603,7 @@ const MenuBar: React.FC = () => {
     }
   };
 
-  const handleSaveProject = async () => {
+  const handleSaveProject = React.useCallback(async () => {
     try {
       setIsSaving(true);
       await projectSaver.saveProject();
@@ -604,9 +614,9 @@ const MenuBar: React.FC = () => {
       showToast('Failed to save project', 'error', 5000);
       setIsSaving(false);
     }
-  };
+  }, [projectSaver]);
 
-  const handleSaveProjectAs = async () => {
+  const handleSaveProjectAs = React.useCallback(async () => {
     try {
       setIsSaving(true);
       await projectSaver.saveProjectAs();
@@ -617,9 +627,9 @@ const MenuBar: React.FC = () => {
       showToast('Failed to save project', 'error', 5000);
       setIsSaving(false);
     }
-  };
+  }, [projectSaver]);
 
-  const handleExit = () => {
+  const handleExit = React.useCallback(() => {
     // First stop any playing audio
     stop();
     // Unload audio
@@ -631,10 +641,10 @@ const MenuBar: React.FC = () => {
     // Try to close the window
     if (typeof window !== 'undefined') {
       // Check for Electron API
-      if ((window as any).electronAPI?.closeWindow) {
-        (window as any).electronAPI.closeWindow();
-      } else if ((window as any).electronAPI?.quit) {
-        (window as any).electronAPI.quit();
+      if (window.electronAPI?.quit) {
+        window.electronAPI.quit();
+      } else if (window.electronAPI?.closeWindow) {
+        window.electronAPI.closeWindow();
       } else {
         // For web browser, try window.close() - may not work depending on how window was opened
         try {
@@ -645,7 +655,23 @@ const MenuBar: React.FC = () => {
         }
       }
     }
-  };
+  }, [projectSaver, stop, unloadAudio]);
+
+  useEffect(() => {
+    const unsubscribe = electronAPI?.onMenuAction?.((action) => {
+      if (action === 'save-project') {
+        void handleSaveProject();
+        return;
+      }
+      if (action === 'save-project-as') {
+        void handleSaveProjectAs();
+      }
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [electronAPI, handleSaveProject, handleSaveProjectAs]);
 
   // Smooth viewport animation hook
   const { animateZoom } = useSmoothViewport();
@@ -728,18 +754,18 @@ const MenuBar: React.FC = () => {
       icon: FileIcon, 
       color: KENYAN_RED,
       items: [
-        { id: 'open', label: 'Start New Project', icon: NewProjectIcon, shortcut: 'Ctrl+O', action: handleStartNewProject },
-        { id: 'load-project', label: 'Load Project', icon: FolderOpenIcon, shortcut: 'Ctrl+L', action: handleLoadProject },
+        { id: 'open', label: 'Start New Project', icon: NewProjectIcon, shortcut: `${shortcutModifier}+O`, action: handleStartNewProject },
+        ...(!isIOS ? [{ id: 'load-project', label: 'Load Project', icon: FolderOpenIcon, shortcut: `${shortcutModifier}+L`, action: handleLoadProject }] : []),
         { id: 'recent-projects', label: 'Recent Projects...', icon: FolderOpenIcon, action: () => { setIsRecentProjectsModalOpen(true); setOpenMenu(null); } },
         { id: 'divider1', label: '', divider: true },
-        { id: 'save', label: 'Save Project', icon: SaveIcon, shortcut: 'Ctrl+S', action: handleSaveProject },
-        { id: 'save-as', label: 'Save Project As...', icon: SaveAsIcon, shortcut: 'Ctrl+Shift+S', action: handleSaveProjectAs },
+        { id: 'save', label: 'Save Project', icon: SaveIcon, shortcut: `${shortcutModifier}+S`, action: handleSaveProject },
+        { id: 'save-as', label: 'Save Project As...', icon: SaveAsIcon, shortcut: `${shortcutModifier}+Shift+S`, action: handleSaveProjectAs },
         { id: 'divider2', label: '', divider: true },
-        { id: 'export-region', label: 'Export Marker Sections...', icon: SaveAsIcon, shortcut: 'Ctrl+E', action: () => { setIsExportModalOpen(true); setOpenMenu(null); }, disabled: markers.length === 0 },
+        { id: 'export-region', label: 'Export Marker Sections...', icon: SaveAsIcon, shortcut: `${shortcutModifier}+E`, action: () => { setIsExportModalOpen(true); setOpenMenu(null); }, disabled: markers.length === 0 },
         { id: 'divider-export', label: '', divider: true },
         { id: 'close', label: 'Close Audio', icon: CloseIcon, action: handleCloseAudio },
         { id: 'divider3', label: '', divider: true },
-        { id: 'exit', label: 'Exit', icon: ExitIcon, shortcut: 'Alt+F4', action: handleExit },
+        { id: 'exit', label: 'Exit', icon: ExitIcon, shortcut: `${shortcutModifier}+Q`, action: handleExit },
       ] as DropdownItem[]
     },
     { 
@@ -755,13 +781,13 @@ const MenuBar: React.FC = () => {
       icon: ViewIcon,
       color: KENYAN_GREEN,
       items: [
-        { id: 'zoom-in', label: 'Zoom In', icon: undefined, shortcut: 'Ctrl++', action: () => { handleZoomIn(); setOpenMenu(null); } },
-        { id: 'zoom-out', label: 'Zoom Out', icon: undefined, shortcut: 'Ctrl+-', action: () => { handleZoomOut(); setOpenMenu(null); } },
-        { id: 'zoom-reset', label: 'Reset Zoom', icon: undefined, shortcut: 'Ctrl+0', action: () => { handleZoomReset(); setOpenMenu(null); } },
+        { id: 'zoom-in', label: 'Zoom In', icon: undefined, shortcut: `${shortcutModifier}++`, action: () => { handleZoomIn(); setOpenMenu(null); } },
+        { id: 'zoom-out', label: 'Zoom Out', icon: undefined, shortcut: `${shortcutModifier}+-`, action: () => { handleZoomOut(); setOpenMenu(null); } },
+        { id: 'zoom-reset', label: 'Reset Zoom', icon: undefined, shortcut: `${shortcutModifier}+0`, action: () => { handleZoomReset(); setOpenMenu(null); } },
         { id: 'divider1', label: '', divider: true },
         { id: 'workspace-layouts', label: 'Workspace Layouts...', icon: undefined, action: () => { setIsWorkspaceLayoutModalOpen(true); setOpenMenu(null); } },
         { id: 'divider2', label: '', divider: true },
-        { id: 'settings', label: 'Settings', icon: SettingsIcon, shortcut: 'Ctrl+,', action: () => { setIsSettingsModalOpen(true); setOpenMenu(null); } },
+        { id: 'settings', label: 'Settings', icon: SettingsIcon, shortcut: `${shortcutModifier}+,`, action: () => { setIsSettingsModalOpen(true); setOpenMenu(null); } },
       ] as DropdownItem[]
     },
   ];

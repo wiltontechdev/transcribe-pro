@@ -31,6 +31,7 @@ const SettingsModal: React.FC = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' ? window.innerWidth >= 768 : false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 390);
   const [availableHeight, setAvailableHeight] = useState(typeof window !== 'undefined' ? window.innerHeight - 64 - 40 : 600); // header (4rem) + margins
   const [mounted, setMounted] = useState(false);
   
@@ -52,6 +53,7 @@ const SettingsModal: React.FC = () => {
     if (typeof window === 'undefined') return;
     
     const handleResize = () => {
+      setWindowWidth(window.innerWidth);
       setIsDesktop(window.innerWidth >= 768);
       setIsMobile(window.innerWidth < 768);
       setAvailableHeight(window.innerHeight - (window.innerWidth < 768 ? 20 : 64) - 40);
@@ -168,6 +170,31 @@ const SettingsModal: React.FC = () => {
 
   if (!isOpen || !mounted) return null;
 
+  const isCompactMobile = isMobile && windowWidth <= 430;
+  const isTinyMobile = isMobile && windowWidth <= 360;
+  const modalPadding = isTinyMobile ? '0.7rem' : isCompactMobile ? '0.85rem' : isMobile ? '1rem' : '1.5rem';
+  const cardPadding = isTinyMobile ? '0.6rem' : isCompactMobile ? '0.7rem' : '0.75rem';
+  const contentGap = isTinyMobile ? '0.9rem' : isMobile ? '1rem' : '1.25rem';
+  const headerTitleSize = isTinyMobile ? '1.1rem' : isCompactMobile ? '1.2rem' : isMobile ? '1.35rem' : '1.75rem';
+  const sectionTitleSize = isTinyMobile ? '0.88rem' : isMobile ? '0.92rem' : '0.95rem';
+  const bodyFontSize = isTinyMobile ? '0.78rem' : isCompactMobile ? '0.82rem' : '0.85rem';
+  const actionButtonMinHeight = isTinyMobile ? '42px' : '46px';
+  const sectionSurface = {
+    padding: cardPadding,
+    background: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: isTinyMobile ? '9px' : '10px',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+  } as const;
+  const ghostButtonSurface = {
+    background: 'rgba(255, 255, 255, 0.08)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: isTinyMobile ? '9px' : '10px',
+    color: '#ffffff',
+    fontSize: bodyFontSize,
+    fontWeight: '500',
+    transition: 'all 0.2s ease',
+  } as const;
+
   const modalContent = (
     <div
       className="modal-backdrop"
@@ -181,10 +208,10 @@ const SettingsModal: React.FC = () => {
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: isMobile ? 'flex-end' : 'center',
         justifyContent: 'center',
         zIndex: 999999,
-        padding: '20px',
+        padding: isTinyMobile ? '6px' : isCompactMobile ? '10px' : isMobile ? '12px' : '20px',
       }}
       onClick={handleBackdropClick}
     >
@@ -195,13 +222,13 @@ const SettingsModal: React.FC = () => {
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: isMobile ? '12px' : '20px',
-          padding: isMobile ? '0.75rem' : '1.5rem',
+          borderRadius: isMobile ? (isTinyMobile ? '18px 18px 14px 14px' : '22px 22px 16px 16px') : '20px',
+          padding: modalPadding,
           minWidth: isMobile ? 'auto' : '700px',
-          maxWidth: isMobile ? '92%' : '900px',
-          width: isMobile ? '92%' : '85vw',
+          maxWidth: isMobile ? 'min(100%, 560px)' : '900px',
+          width: isMobile ? '100%' : '85vw',
           height: isMobile ? 'auto' : `${availableHeight}px`,
-          maxHeight: isMobile ? '75vh' : `${availableHeight}px`,
+          maxHeight: isMobile ? `min(calc(100dvh - ${isTinyMobile ? 8 : 12}px), 760px)` : `${availableHeight}px`,
           overflowY: 'auto',
           zIndex: 1000000,
           overflowX: 'hidden',
@@ -209,6 +236,7 @@ const SettingsModal: React.FC = () => {
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
+          paddingBottom: isMobile ? `calc(${modalPadding} + env(safe-area-inset-bottom, 0px))` : modalPadding,
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -217,23 +245,23 @@ const SettingsModal: React.FC = () => {
           onClick={handleCancel}
           style={{
             position: 'absolute',
-            top: '1rem',
-            right: '1rem',
+            top: isTinyMobile ? '0.7rem' : '0.85rem',
+            right: isTinyMobile ? '0.7rem' : '0.85rem',
             background: 'rgba(255, 255, 255, 0.08)',
             backdropFilter: 'blur(10px)',
             WebkitBackdropFilter: 'blur(10px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: '50%',
-            width: '32px',
-            height: '32px',
+            width: isTinyMobile ? '34px' : '36px',
+            height: isTinyMobile ? '34px' : '36px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
             color: '#ffffff',
-            fontSize: '18px',
             transition: 'all 0.2s ease',
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+            padding: 0,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
@@ -252,18 +280,19 @@ const SettingsModal: React.FC = () => {
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          paddingRight: '0.5rem',
+          paddingRight: isMobile ? 0 : '0.5rem',
           minHeight: 0,
         }}>
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: isMobile ? '0.9rem' : '1rem', paddingBottom: '0.75rem', paddingRight: isMobile ? '2.4rem' : '2.8rem', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
             <h2
               style={{
                 color: '#ffffff',
-                fontSize: '1.75rem',
+                fontSize: headerTitleSize,
                 fontWeight: '600',
                 margin: 0,
                 fontFamily: "'Merienda', 'Caveat', cursive",
+                lineHeight: 1.1,
               }}
             >
               ⚙️ Settings
@@ -274,19 +303,19 @@ const SettingsModal: React.FC = () => {
           <div style={{
             display: 'grid',
             gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr',
-            gap: '1.5rem',
-            marginBottom: '1.5rem',
+            gap: isMobile ? contentGap : '1.5rem',
+            marginBottom: isMobile ? '1rem' : '1.5rem',
           }}>
           {/* Left Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: contentGap }}>
             {/* Theme (Light / Dark) */}
             <div>
               <h3
                 style={{
                   color: '#ffffff',
-                  fontSize: '0.95rem',
+                  fontSize: sectionTitleSize,
                   fontWeight: '500',
-                  marginBottom: '0.75rem',
+                  marginBottom: isMobile ? '0.6rem' : '0.75rem',
                   fontFamily: "'Merienda', 'Caveat', cursive",
                 }}
               >
@@ -295,24 +324,23 @@ const SettingsModal: React.FC = () => {
               <div
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.6rem',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  flexDirection: isTinyMobile ? 'column' : 'row',
+                  alignItems: 'stretch',
+                  gap: isTinyMobile ? '0.55rem' : '0.75rem',
+                  ...sectionSurface,
                 }}
               >
                 <button
                   onClick={() => setTheme('light')}
                   style={{
                     flex: 1,
-                    padding: '0.6rem',
+                    minHeight: actionButtonMinHeight,
+                    padding: isTinyMobile ? '0.55rem 0.7rem' : '0.65rem 0.8rem',
                     borderRadius: '8px',
                     border: theme === 'light' ? '2px solid #006644' : '1px solid rgba(255, 255, 255, 0.1)',
                     background: theme === 'light' ? 'rgba(0, 102, 68, 0.2)' : 'rgba(255, 255, 255, 0.05)',
                     color: '#ffffff',
-                    fontSize: '0.9rem',
+                    fontSize: bodyFontSize,
                     fontWeight: 500,
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
@@ -324,12 +352,13 @@ const SettingsModal: React.FC = () => {
                   onClick={() => setTheme('dark')}
                   style={{
                     flex: 1,
-                    padding: '0.6rem',
+                    minHeight: actionButtonMinHeight,
+                    padding: isTinyMobile ? '0.55rem 0.7rem' : '0.65rem 0.8rem',
                     borderRadius: '8px',
                     border: theme === 'dark' ? '2px solid #006644' : '1px solid rgba(255, 255, 255, 0.1)',
                     background: theme === 'dark' ? 'rgba(0, 102, 68, 0.2)' : 'rgba(255, 255, 255, 0.05)',
                     color: '#ffffff',
-                    fontSize: '0.9rem',
+                    fontSize: bodyFontSize,
                     fontWeight: 500,
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
@@ -345,9 +374,9 @@ const SettingsModal: React.FC = () => {
               <h3
                 style={{
                   color: '#ffffff',
-                  fontSize: '0.95rem',
+                  fontSize: sectionTitleSize,
                   fontWeight: '500',
-                  marginBottom: '0.75rem',
+                  marginBottom: isMobile ? '0.6rem' : '0.75rem',
                   fontFamily: "'Merienda', 'Caveat', cursive",
                 }}
               >
@@ -358,19 +387,18 @@ const SettingsModal: React.FC = () => {
               <div
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: isTinyMobile ? 'column' : 'row',
+                  alignItems: isTinyMobile ? 'stretch' : 'center',
                   justifyContent: 'space-between',
-                  marginBottom: '0.75rem',
-                  padding: '0.6rem',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  gap: isTinyMobile ? '0.65rem' : '0.75rem',
+                  marginBottom: isMobile ? '0.6rem' : '0.75rem',
+                  ...sectionSurface,
                 }}
               >
                 <label
                   style={{
                     color: '#ffffff',
-                    fontSize: '0.9rem',
+                    fontSize: bodyFontSize,
                     cursor: 'pointer',
                   }}
                 >
@@ -390,6 +418,7 @@ const SettingsModal: React.FC = () => {
                     boxShadow: settings.autoSaveEnabled
                       ? 'inset 2px 2px 4px rgba(0, 0, 0, 0.3), inset -2px -2px 4px rgba(255, 255, 255, 0.05)'
                       : 'inset -2px -2px 4px rgba(0, 0, 0, 0.3), inset 2px 2px 4px rgba(255, 255, 255, 0.05)',
+                    alignSelf: isTinyMobile ? 'flex-end' : 'center',
                   }}
                 >
                   <div
@@ -412,17 +441,14 @@ const SettingsModal: React.FC = () => {
               {settings.autoSaveEnabled && (
                 <div
                   style={{
-                    padding: '0.6rem',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    borderRadius: '10px',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    ...sectionSurface,
                   }}
                 >
                   <label
                     style={{
                       display: 'block',
                       color: '#ffffff',
-                      fontSize: '0.85rem',
+                      fontSize: bodyFontSize,
                       marginBottom: '0.4rem',
                     }}
                   >
@@ -436,13 +462,15 @@ const SettingsModal: React.FC = () => {
                     onChange={(e) => handleChange('autoSaveInterval', parseInt(e.target.value) || 1)}
                     style={{
                       width: '100%',
-                      padding: '0.4rem',
+                      minHeight: actionButtonMinHeight,
+                      padding: isTinyMobile ? '0.55rem 0.65rem' : '0.6rem 0.7rem',
                       background: 'rgba(0, 0, 0, 0.3)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       borderRadius: '8px',
                       color: '#ffffff',
-                      fontSize: '0.85rem',
+                      fontSize: bodyFontSize,
                       boxShadow: 'inset 2px 2px 4px rgba(0, 0, 0, 0.3), inset -2px -2px 4px rgba(255, 255, 255, 0.02)',
+                      boxSizing: 'border-box',
                     }}
                   />
                 </div>
@@ -454,9 +482,9 @@ const SettingsModal: React.FC = () => {
               <h3
                 style={{
                   color: '#ffffff',
-                  fontSize: '0.95rem',
+                  fontSize: sectionTitleSize,
                   fontWeight: '500',
-                  marginBottom: '0.75rem',
+                  marginBottom: isMobile ? '0.6rem' : '0.75rem',
                   fontFamily: "'Merienda', 'Caveat', cursive",
                 }}
               >
@@ -467,14 +495,16 @@ const SettingsModal: React.FC = () => {
                 onChange={(e) => handleChange('language', e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '0.6rem',
+                  minHeight: actionButtonMinHeight,
+                  padding: isTinyMobile ? '0.55rem 0.65rem' : '0.65rem 0.75rem',
                   background: 'rgba(255, 255, 255, 0.05)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
                   borderRadius: '10px',
                   color: '#ffffff',
-                  fontSize: '0.85rem',
+                  fontSize: bodyFontSize,
                   cursor: 'pointer',
                   boxShadow: 'inset 2px 2px 4px rgba(0, 0, 0, 0.3), inset -2px -2px 4px rgba(255, 255, 255, 0.02)',
+                  boxSizing: 'border-box',
                 }}
               >
                 <option value="English">English</option>
@@ -483,16 +513,16 @@ const SettingsModal: React.FC = () => {
           </div>
 
           {/* Right Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: contentGap }}>
             {/* Keyboard Shortcuts - Hidden on mobile/tablet devices */}
             {isDesktop && (
             <div>
               <h3
                 style={{
                   color: '#ffffff',
-                  fontSize: '0.95rem',
+                  fontSize: sectionTitleSize,
                   fontWeight: '500',
-                  marginBottom: '0.75rem',
+                  marginBottom: isMobile ? '0.6rem' : '0.75rem',
                   fontFamily: "'Merienda', 'Caveat', cursive",
                 }}
               >
@@ -500,10 +530,7 @@ const SettingsModal: React.FC = () => {
               </h3>
               <div
                 style={{
-                  padding: '0.75rem',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  ...sectionSurface,
                 }}
               >
             {[
@@ -552,16 +579,16 @@ const SettingsModal: React.FC = () => {
             )}
 
             {/* About & Updates Section */}
-            <AboutAndUpdates />
+            <AboutAndUpdates isMobile={isMobile} isCompactMobile={isCompactMobile} isTinyMobile={isTinyMobile} sectionTitleSize={sectionTitleSize} bodyFontSize={bodyFontSize} cardPadding={cardPadding} actionButtonMinHeight={actionButtonMinHeight} />
 
             {/* Storage Section */}
             <div>
               <h3
                 style={{
                   color: '#ffffff',
-                  fontSize: '0.95rem',
+                  fontSize: sectionTitleSize,
                   fontWeight: '500',
-                  marginBottom: '0.75rem',
+                  marginBottom: isMobile ? '0.6rem' : '0.75rem',
                   fontFamily: "'Merienda', 'Caveat', cursive",
                 }}
               >
@@ -569,27 +596,24 @@ const SettingsModal: React.FC = () => {
               </h3>
               <div
                 style={{
-                  padding: '0.75rem',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  ...sectionSurface,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '0.75rem',
+                  gap: isMobile ? '0.65rem' : '0.75rem',
                 }}
               >
                 {/* localStorage size */}
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>localStorage:</span>
-                  <span style={{ color: '#ffffff', fontSize: '0.8rem', fontWeight: '500' }}>{localStorageKB} KB</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: bodyFontSize }}>localStorage:</span>
+                  <span style={{ color: '#ffffff', fontSize: bodyFontSize, fontWeight: '500' }}>{localStorageKB} KB</span>
                 </div>
 
                 {/* Storage Usage (quota/usage when available) */}
                 {storageUsage && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                      <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>Used:</span>
-                      <span style={{ color: '#ffffff', fontSize: '0.8rem', fontWeight: '500' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+                      <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: bodyFontSize }}>Used:</span>
+                      <span style={{ color: '#ffffff', fontSize: bodyFontSize, fontWeight: '500' }}>
                         {formatBytes(storageUsage.used)} / {formatBytes(storageUsage.quota)}
                       </span>
                     </div>
@@ -616,19 +640,18 @@ const SettingsModal: React.FC = () => {
                     type="button"
                     onClick={handleRunPerfCheck}
                     style={{
-                      padding: '0.35rem 0.6rem',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      minHeight: actionButtonMinHeight,
+                      padding: isTinyMobile ? '0.45rem 0.6rem' : '0.5rem 0.7rem',
+                      ...ghostButtonSurface,
                       borderRadius: '6px',
-                      color: '#ffffff',
-                      fontSize: '0.75rem',
                       cursor: 'pointer',
+                      width: isTinyMobile ? '100%' : 'auto',
                     }}
                   >
                     Run quick performance check
                   </button>
                   {perfCheckMs !== null && (
-                    <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.8rem' }}>
+                    <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: bodyFontSize }}>
                       Result: {perfCheckMs} ms (lower is better)
                     </span>
                   )}
@@ -640,12 +663,13 @@ const SettingsModal: React.FC = () => {
                   disabled={isClearingAutosave}
                   style={{
                     width: '100%',
-                    padding: '0.5rem',
+                    minHeight: actionButtonMinHeight,
+                    padding: isTinyMobile ? '0.55rem 0.65rem' : '0.6rem 0.75rem',
                     background: 'rgba(255, 255, 255, 0.08)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     borderRadius: '8px',
                     color: '#ffffff',
-                    fontSize: '0.8rem',
+                    fontSize: bodyFontSize,
                     fontWeight: '500',
                     cursor: isClearingAutosave ? 'wait' : 'pointer',
                     transition: 'all 0.2s ease',
@@ -676,12 +700,13 @@ const SettingsModal: React.FC = () => {
                   disabled={isClearingProjects}
                   style={{
                     width: '100%',
-                    padding: '0.5rem',
+                    minHeight: actionButtonMinHeight,
+                    padding: isTinyMobile ? '0.55rem 0.65rem' : '0.6rem 0.75rem',
                     background: 'rgba(220, 53, 69, 0.15)',
                     border: '1px solid rgba(220, 53, 69, 0.25)',
                     borderRadius: '8px',
                     color: '#ff6b7a',
-                    fontSize: '0.8rem',
+                    fontSize: bodyFontSize,
                     fontWeight: '500',
                     cursor: isClearingProjects ? 'wait' : 'pointer',
                     transition: 'all 0.2s ease',
@@ -712,17 +737,18 @@ const SettingsModal: React.FC = () => {
         </div>
 
         {/* Reset Button */}
-        <div style={{ marginBottom: '1rem', flexShrink: 0 }}>
+        <div style={{ marginBottom: isMobile ? '0.85rem' : '1rem', flexShrink: 0 }}>
           <button
             onClick={handleReset}
             style={{
               width: '100%',
-              padding: '0.6rem',
+              minHeight: actionButtonMinHeight,
+              padding: isTinyMobile ? '0.55rem 0.65rem' : '0.65rem 0.75rem',
               background: 'rgba(220, 53, 69, 0.2)',
               border: '1px solid rgba(220, 53, 69, 0.3)',
               borderRadius: '10px',
               color: '#ff6b7a',
-              fontSize: '0.85rem',
+              fontSize: bodyFontSize,
               fontWeight: '500',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
@@ -744,9 +770,10 @@ const SettingsModal: React.FC = () => {
         {/* Action Buttons - Fixed at bottom */}
         <div
           style={{
-            display: 'flex',
+            display: 'grid',
+            gridTemplateColumns: isTinyMobile ? '1fr' : isMobile ? 'repeat(2, minmax(0, 1fr))' : 'auto auto',
             gap: '0.75rem',
-            justifyContent: 'flex-end',
+            justifyContent: isMobile ? 'stretch' : 'flex-end',
             paddingTop: '1rem',
             borderTop: '1px solid rgba(255, 255, 255, 0.1)',
             flexShrink: 0,
@@ -755,18 +782,20 @@ const SettingsModal: React.FC = () => {
           <button
             onClick={handleCancel}
             style={{
-              padding: '0.6rem 1.25rem',
+              minHeight: actionButtonMinHeight,
+              padding: isTinyMobile ? '0.55rem 0.75rem' : '0.65rem 1rem',
               background: 'rgba(255, 255, 255, 0.08)',
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '10px',
               color: '#ffffff',
-              fontSize: '0.85rem',
+              fontSize: bodyFontSize,
               fontWeight: '500',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+              width: '100%',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
@@ -781,17 +810,19 @@ const SettingsModal: React.FC = () => {
             onClick={handleSave}
             disabled={!hasChanges}
             style={{
-              padding: '0.6rem 1.25rem',
+              minHeight: actionButtonMinHeight,
+              padding: isTinyMobile ? '0.55rem 0.75rem' : '0.65rem 1rem',
               background: hasChanges ? '#006644' : 'rgba(0, 102, 68, 0.3)',
               border: '1px solid rgba(0, 102, 68, 0.5)',
               borderRadius: '10px',
               color: '#ffffff',
-              fontSize: '0.85rem',
+              fontSize: bodyFontSize,
               fontWeight: '500',
               cursor: hasChanges ? 'pointer' : 'not-allowed',
               transition: 'all 0.2s ease',
               opacity: hasChanges ? 1 : 0.5,
               boxShadow: hasChanges ? '0 2px 8px rgba(0, 102, 68, 0.3)' : 'none',
+              width: '100%',
             }}
             onMouseEnter={(e) => {
               if (hasChanges) {
@@ -817,7 +848,15 @@ const SettingsModal: React.FC = () => {
 };
 
 // Separate component for About & Updates to use hooks
-const AboutAndUpdates: React.FC = () => {
+const AboutAndUpdates: React.FC<{
+  isMobile: boolean;
+  isCompactMobile: boolean;
+  isTinyMobile: boolean;
+  sectionTitleSize: string;
+  bodyFontSize: string;
+  cardPadding: string;
+  actionButtonMinHeight: string;
+}> = ({ isMobile, isCompactMobile, isTinyMobile, sectionTitleSize, bodyFontSize, cardPadding, actionButtonMinHeight }) => {
   const { currentVersion, isChecking, lastCheckResult, checkForUpdates, isElectron } = useUpdateChecker();
   const [appVersion, setAppVersion] = useState('1.0.0');
 
@@ -833,9 +872,9 @@ const AboutAndUpdates: React.FC = () => {
       <h3
         style={{
           color: '#ffffff',
-          fontSize: '0.95rem',
+          fontSize: sectionTitleSize,
           fontWeight: '500',
-          marginBottom: '0.75rem',
+          marginBottom: isMobile ? '0.6rem' : '0.75rem',
           fontFamily: "'Merienda', 'Caveat', cursive",
         }}
       >
@@ -843,30 +882,30 @@ const AboutAndUpdates: React.FC = () => {
       </h3>
       <div
         style={{
-          padding: '0.75rem',
+          padding: cardPadding,
           background: 'rgba(255, 255, 255, 0.05)',
-          borderRadius: '10px',
+          borderRadius: isTinyMobile ? '9px' : '10px',
           border: '1px solid rgba(255, 255, 255, 0.08)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.75rem',
+          gap: isMobile ? '0.65rem' : '0.75rem',
         }}
       >
         {/* Version Info */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isTinyMobile ? 'flex-start' : 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <div>
-            <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>Version: </span>
-            <span style={{ color: '#ffffff', fontSize: '0.8rem', fontWeight: '500' }}>
+            <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: bodyFontSize }}>Version: </span>
+            <span style={{ color: '#ffffff', fontSize: bodyFontSize, fontWeight: '500' }}>
               {appVersion}
             </span>
           </div>
           {lastCheckResult === 'up-to-date' && (
-            <span style={{ fontSize: '0.75rem', color: KENYAN_GREEN }}>
+            <span style={{ fontSize: isCompactMobile ? '0.72rem' : '0.75rem', color: KENYAN_GREEN }}>
               Up to date
             </span>
           )}
           {lastCheckResult === 'available' && (
-            <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>
+            <span style={{ fontSize: isCompactMobile ? '0.72rem' : '0.75rem', color: '#f59e0b' }}>
               Update available!
             </span>
           )}
@@ -879,12 +918,13 @@ const AboutAndUpdates: React.FC = () => {
             disabled={isChecking}
             style={{
               width: '100%',
-              padding: '0.5rem',
+              minHeight: actionButtonMinHeight,
+              padding: isTinyMobile ? '0.55rem 0.65rem' : '0.6rem 0.75rem',
               background: 'rgba(255, 255, 255, 0.08)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '8px',
               color: '#ffffff',
-              fontSize: '0.8rem',
+              fontSize: bodyFontSize,
               fontWeight: '500',
               cursor: isChecking ? 'wait' : 'pointer',
               transition: 'all 0.2s ease',
@@ -923,7 +963,7 @@ const AboutAndUpdates: React.FC = () => {
 
         {/* Web version notice */}
         {!isElectron && (
-          <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)' }}>
+          <p style={{ margin: 0, fontSize: isCompactMobile ? '0.72rem' : '0.75rem', color: 'rgba(255, 255, 255, 0.5)' }}>
             Web version always uses the latest release.
           </p>
         )}
@@ -940,4 +980,3 @@ const AboutAndUpdates: React.FC = () => {
 };
 
 export default SettingsModal;
-

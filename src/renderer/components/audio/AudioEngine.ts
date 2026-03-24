@@ -95,6 +95,39 @@ export class AudioEngine {
   }
 
   /**
+   * Safari/iOS PWAs can report interrupted audio contexts after foregrounding.
+   * Treat any non-running state as needing a resume, not just "suspended".
+   */
+  private getContextState(context?: { state?: string } | null): string {
+    return typeof context?.state === 'string' ? context.state : 'unknown';
+  }
+
+  /**
+   * Ensure both Tone.js and the native AudioContext are ready for playback.
+   * When called from a click/touch handler we also prime Tone.start() so the
+   * first restored playback on iOS standalone mode is not silent.
+   */
+  private async ensureAudioContextsRunning(options?: { primeToneStart?: boolean }): Promise<void> {
+    if (options?.primeToneStart) {
+      await Tone.start();
+    }
+
+    const toneState = this.getContextState(Tone.context as unknown as { state?: string });
+    if (toneState !== 'running' && toneState !== 'closed') {
+      await Tone.context.resume();
+    }
+
+    if (!this.audioContext) {
+      return;
+    }
+
+    const nativeState = this.getContextState(this.audioContext as unknown as { state?: string });
+    if (nativeState !== 'running' && nativeState !== 'closed') {
+      await this.audioContext.resume();
+    }
+  }
+
+  /**
    * Pitch change (semitones) caused by playbackRate - when speed changes, pitch changes.
    * Formula: 12 * log2(speed). At 1.5x speed, pitch goes up ~7 semitones.
    */
@@ -203,8 +236,9 @@ export class AudioEngine {
       // Step 4: Initialize Tone.js and create Player FIRST (before decoding for waveform)
       // This is because Tone.Player loading is more reliable in Electron
       
-      // Start Tone.js (required by browsers before audio playback)
-      await Tone.start();
+      // Prime Web Audio before creating a new player. This is especially
+      // important on iOS PWAs after relaunch/foreground restore.
+      await this.ensureAudioContextsRunning({ primeToneStart: true });
 
       // Dispose existing player if any
       if (this.player) {
@@ -258,10 +292,7 @@ export class AudioEngine {
       } else {
         // Browser: Use standard decodeAudioData
         
-        // Ensure AudioContext is running
-        if (this.audioContext.state === 'suspended') {
-          await this.audioContext.resume();
-        }
+        await this.ensureAudioContextsRunning();
 
         try {
           decodedBuffer = await this.decodeAudioBuffer(arrayBuffer.slice(0));
@@ -444,9 +475,7 @@ export class AudioEngine {
     }
 
     // Resume audio context if suspended
-    if (Tone.context.state !== 'running') {
-      await Tone.context.resume();
-    }
+    await this.ensureAudioContextsRunning({ primeToneStart: true });
 
     // If already playing, do nothing
     if (this.isPlaying) {
@@ -863,9 +892,9 @@ export class AudioEngine {
 
     try {
       // Ensure Tone.js context is running (only if suspended)
-      if (Tone.context.state === 'suspended') {
-        Tone.start().catch(() => {
-          // Ignore errors - might already be starting
+      if (this.getContextState(Tone.context as unknown as { state?: string }) !== 'running') {
+        this.ensureAudioContextsRunning({ primeToneStart: true }).catch(() => {
+          // Ignore errors here; pitch changes should not fail the UI.
         });
       }
 
@@ -987,13 +1016,7 @@ export class AudioEngine {
    * Resume audio context (required after user interaction)
    */
   public async resumeAudioContext(): Promise<void> {
-    if (Tone.context.state !== 'running') {
-      await Tone.context.resume();
-    }
-    
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-    }
+    await this.ensureAudioContextsRunning({ primeToneStart: true });
   }
 
   /**

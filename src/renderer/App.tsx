@@ -67,7 +67,6 @@ const App: React.FC = () => {
   // Initialize audio engine (but don't use its local loading state)
   // This hook should not cause re-renders
   const { play, pause, stop, seek, setVolume, loadFile, resumeAudioContext, setLoop, disableLoop } = useAudioEngine();
-
   const isPreviousMarkerNavKey = React.useCallback((key?: string, code?: string) => {
     const normalizedKey = (key || '').toLowerCase();
     const normalizedCode = (code || '').toLowerCase();
@@ -221,6 +220,51 @@ const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // iOS/Safari PWAs can foreground with audio contexts suspended or interrupted.
+  // Rearm Web Audio on the first interaction after page show/focus so restored
+  // projects can play immediately after the app is reopened.
+  useEffect(() => {
+    const isElectron = !!(window as any).electronAPI ||
+      (typeof process !== 'undefined' && (process as any).versions && (process as any).versions.electron);
+    if (isElectron) return;
+
+    let needsAudioRearm = true;
+
+    const markForRearm = () => {
+      needsAudioRearm = true;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        markForRearm();
+      }
+    };
+
+    const handleUserInteraction = () => {
+      if (!needsAudioRearm) return;
+      needsAudioRearm = false;
+      void resumeAudioContext().catch(() => {
+        needsAudioRearm = true;
+      });
+    };
+
+    window.addEventListener('pageshow', markForRearm);
+    window.addEventListener('focus', markForRearm);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('pointerdown', handleUserInteraction, true);
+    document.addEventListener('touchstart', handleUserInteraction, true);
+    document.addEventListener('keydown', handleUserInteraction, true);
+
+    return () => {
+      window.removeEventListener('pageshow', markForRearm);
+      window.removeEventListener('focus', markForRearm);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('pointerdown', handleUserInteraction, true);
+      document.removeEventListener('touchstart', handleUserInteraction, true);
+      document.removeEventListener('keydown', handleUserInteraction, true);
+    };
+  }, [resumeAudioContext]);
 
 
   // Track if auto-restore is pending (failed due to audio context)
@@ -591,136 +635,166 @@ const App: React.FC = () => {
   };
   
   // Loading overlay component with blur background
-  const LoadingOverlay = ({ withBlur = false }: { withBlur?: boolean }) => (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: withBlur 
-        ? 'rgba(10, 10, 10, 0.85)' 
-        : 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0d1f0d 100%)',
-      backdropFilter: withBlur ? 'blur(8px)' : 'none',
-      WebkitBackdropFilter: withBlur ? 'blur(8px)' : 'none',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      animation: 'fadeIn 0.3s ease-out',
-    }}>
-      {/* Animated spinner with pulse */}
+  const LoadingOverlay = ({ withBlur = false }: { withBlur?: boolean }) => {
+    const overlayPadding = isMobile ? '20px 16px' : '32px 24px';
+    const cardPadding = isMobile ? '20px 18px' : '28px 32px';
+    const spinnerSize = isMobile ? 72 : 100;
+    const glowSize = isMobile ? 88 : 120;
+    const innerSize = isMobile ? 42 : 60;
+    const ringWidth = isMobile ? 3 : 4;
+    const waveIconSize = isMobile ? 20 : 30;
+    const titleSize = isMobile ? '1.08rem' : '1.6rem';
+    const subtitleSize = isMobile ? '0.78rem' : '1rem';
+    const dotSize = isMobile ? 7 : 10;
+
+    return (
       <div style={{
-        position: 'relative',
-        width: '100px',
-        height: '100px',
-        marginBottom: '32px',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: withBlur
+          ? 'rgba(10, 10, 10, 0.85)'
+          : 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0d1f0d 100%)',
+        backdropFilter: withBlur ? 'blur(8px)' : 'none',
+        WebkitBackdropFilter: withBlur ? 'blur(8px)' : 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: overlayPadding,
+        zIndex: 9999,
+        animation: 'fadeIn 0.3s ease-out',
       }}>
-        {/* Outer glow */}
         <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '120px',
-          height: '120px',
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${KENYAN_GREEN}30 0%, transparent 70%)`,
-          animation: 'pulse 2s ease-in-out infinite',
-        }} />
-        
-        {/* Spinner ring */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100px',
-          height: '100px',
-          border: `4px solid rgba(255,255,255,0.1)`,
-          borderTop: `4px solid ${KENYAN_GREEN}`,
-          borderRight: `4px solid ${KENYAN_RED}`,
-          borderRadius: '50%',
-          animation: 'spin 1s linear infinite',
-        }} />
-        
-        {/* Inner circle */}
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '60px',
-          height: '60px',
-          borderRadius: '50%',
-          background: 'rgba(255,255,255,0.05)',
+          width: '100%',
+          maxWidth: isMobile ? '280px' : '360px',
+          padding: cardPadding,
+          borderRadius: isMobile ? '20px' : '28px',
+          background: 'rgba(8, 12, 10, 0.78)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.35)',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'center',
+          textAlign: 'center',
         }}>
-          {/* Wave icon */}
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={KENYAN_GREEN} strokeWidth="2">
-            <path d="M2 12h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-8a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v8a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-4a2 2 0 0 1 2-2h2"/>
-          </svg>
-        </div>
-      </div>
-      
-      {/* Loading text */}
-      <div style={{
-        fontFamily: "'Merienda', cursive",
-        fontSize: '1.6rem',
-        color: '#ffffff',
-        marginBottom: '12px',
-        textShadow: `0 0 20px ${KENYAN_GREEN}40`,
-      }}>
-        {withBlur ? 'Loading New Audio...' : 'Loading Audio...'}
-      </div>
-      
-      <div style={{
-        fontFamily: "'Merienda', cursive",
-        fontSize: '1rem',
-        color: 'rgba(255,255,255,0.6)',
-        marginBottom: '24px',
-      }}>
-        Preparing waveform visualization
-      </div>
-      
-      {/* Progress dots */}
-      <div style={{ display: 'flex', gap: '8px' }}>
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            style={{
-              width: '10px',
-              height: '10px',
+          {/* Animated spinner with pulse */}
+          <div style={{
+            position: 'relative',
+            width: `${spinnerSize}px`,
+            height: `${spinnerSize}px`,
+            marginBottom: isMobile ? '18px' : '32px',
+          }}>
+            {/* Outer glow */}
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: `${glowSize}px`,
+              height: `${glowSize}px`,
               borderRadius: '50%',
-              background: KENYAN_GREEN,
-              animation: `bounce 1.4s ease-in-out ${i * 0.2}s infinite`,
-            }}
-          />
-        ))}
+              background: `radial-gradient(circle, ${KENYAN_GREEN}30 0%, transparent 70%)`,
+              animation: 'pulse 2s ease-in-out infinite',
+            }} />
+
+            {/* Spinner ring */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: `${spinnerSize}px`,
+              height: `${spinnerSize}px`,
+              border: `${ringWidth}px solid rgba(255,255,255,0.1)`,
+              borderTop: `${ringWidth}px solid ${KENYAN_GREEN}`,
+              borderRight: `${ringWidth}px solid ${KENYAN_RED}`,
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }} />
+
+            {/* Inner circle */}
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: `${innerSize}px`,
+              height: `${innerSize}px`,
+              borderRadius: '50%',
+              background: 'rgba(255,255,255,0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {/* Wave icon */}
+              <svg width={waveIconSize} height={waveIconSize} viewBox="0 0 24 24" fill="none" stroke={KENYAN_GREEN} strokeWidth="2">
+                <path d="M2 12h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-8a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v8a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-4a2 2 0 0 1 2-2h2"/>
+              </svg>
+            </div>
+          </div>
+
+          {/* Loading text */}
+          <div style={{
+            fontFamily: "'Merienda', cursive",
+            fontSize: titleSize,
+            lineHeight: 1.2,
+            color: '#ffffff',
+            marginBottom: isMobile ? '8px' : '12px',
+            textShadow: `0 0 20px ${KENYAN_GREEN}40`,
+          }}>
+            {withBlur ? 'Loading New Audio...' : 'Loading Audio...'}
+          </div>
+
+          <div style={{
+            fontFamily: "'Merienda', cursive",
+            fontSize: subtitleSize,
+            color: 'rgba(255,255,255,0.6)',
+            marginBottom: isMobile ? '16px' : '24px',
+            lineHeight: 1.45,
+            maxWidth: isMobile ? '190px' : '240px',
+          }}>
+            Preparing waveform visualization
+          </div>
+
+          {/* Progress dots */}
+          <div style={{ display: 'flex', gap: isMobile ? '6px' : '8px' }}>
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                style={{
+                  width: `${dotSize}px`,
+                  height: `${dotSize}px`,
+                  borderRadius: '50%',
+                  background: KENYAN_GREEN,
+                  animation: `bounce 1.4s ease-in-out ${i * 0.2}s infinite`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+          }
+          @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-12px); }
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+        `}</style>
       </div>
-      
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes pulse {
-          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-          50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
-        }
-        @keyframes bounce {
-          0%, 80%, 100% { transform: translateY(0); }
-          40% { transform: translateY(-12px); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-      `}</style>
-    </div>
-  );
+    );
+  };
   
   // Priority 1: Show loading overlay when loading (whether from welcome screen or main app)
   if (isLoading) {
@@ -806,6 +880,13 @@ const App: React.FC = () => {
               </>
             ) : (
               <>
+                {/* Playback Panel - placed directly below the mobile menu */}
+                <div className="mobile-panel playback-section">
+                  <ErrorBoundary>
+                    <PlaybackPanel />
+                  </ErrorBoundary>
+                </div>
+
                 {/* Waveform Section - scrollable */}
                 <div className="mobile-panel waveform-mobile-section">
                   <ErrorBoundary>
@@ -813,24 +894,10 @@ const App: React.FC = () => {
                   </ErrorBoundary>
                 </div>
 
-                {/* Marker Timeline Section - takes most space for stacked markers */}
+                {/* Marker Timeline Section - takes the remaining mobile space */}
                 <div className="mobile-panel timeline-mobile-section">
                   <ErrorBoundary>
                     <MarkerTimeline />
-                  </ErrorBoundary>
-                </div>
-
-                {/* Playback Panel - Before marker panel */}
-                <div className="mobile-panel playback-section">
-                  <ErrorBoundary>
-                    <PlaybackPanel />
-                  </ErrorBoundary>
-                </div>
-
-                {/* Marker Panel - fixed height, shows 2.5 markers, scrollable */}
-                <div className="mobile-panel marker-panel-section">
-                  <ErrorBoundary>
-                    <MarkerPanel />
                   </ErrorBoundary>
                 </div>
               </>

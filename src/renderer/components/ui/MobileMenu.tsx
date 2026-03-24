@@ -10,11 +10,14 @@ import { getProjectLoader } from '../project/ProjectLoader';
 import { showToast } from './Toast';
 import { useSmoothViewport } from '../../hooks/useSmoothViewport';
 import { onPitchStatus } from '../audio/HowlerAudioEngine';
-import { getDefaultZoomLevel } from '../../utils/defaultZoom';
+import { MOBILE_MIN_ZOOM, getDefaultZoomLevel, getMaxZoomLevel } from '../../utils/defaultZoom';
+import { isIOSDevice } from '../../utils/platform';
 
 // Kenyan colors
 const KENYAN_RED = '#DE2910';
 const KENYAN_GREEN = '#006644';
+const PITCH_PRESETS = [-2, -1, 0, 1, 2] as const;
+const PITCH_FINE_STEP = 0.1;
 
 // PWA install prompt interface
 interface BeforeInstallPromptEvent extends Event {
@@ -24,12 +27,14 @@ interface BeforeInstallPromptEvent extends Event {
 
 const MobileMenu: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 390);
+  const [isIOS] = useState(() => isIOSDevice());
   const menuRef = useRef<HTMLDivElement>(null);
-  
+
   // PWA Install state (for "Install App" menu item; global banner is in App)
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
-  
+
   const theme = useAppStore((state) => state.theme);
   const isLightMode = theme === 'light';
   const isAudioLoaded = useAppStore((state) => state.audio.isLoaded);
@@ -38,10 +43,10 @@ const MobileMenu: React.FC = () => {
   const currentTime = useAppStore((state) => state.audio.currentTime) || 0;
   const undo = useAppStore((state) => state.undo);
   const redo = useAppStore((state) => state.redo);
-  const canUndo = useAppStore((state) => state.canUndo);
-  const canRedo = useAppStore((state) => state.canRedo);
+  const canUndo = useAppStore((state) => state.undoHistory.length > 0);
+  const canRedo = useAppStore((state) => state.redoHistory.length > 0);
   const setIsSettingsModalOpen = useAppStore((state) => state.setIsSettingsModalOpen);
-  
+
   // Pitch and playback rate
   const pitch = useAppStore((state) => state.globalControls.pitch) || 0;
   const playbackRate = useAppStore((state) => state.globalControls.playbackRate) || 1;
@@ -49,11 +54,11 @@ const MobileMenu: React.FC = () => {
   const toggleMute = useAppStore((state) => state.toggleMute);
   const volume = useAppStore((state) => state.globalControls.volume) ?? 6;
   const setVolumeStore = useAppStore((state) => state.setVolume);
-  
+
   // Use audio engine's pitch and volume methods (same as desktop)
   const { loadFile, resumeAudioContext, setPitch: setAudioPitch, setVolume: setAudioVolume } = useAudioEngine();
   const { animateZoom } = useSmoothViewport();
-  
+
   // Pitch processing status
   const [isPitchProcessing, setIsPitchProcessing] = useState(false);
 
@@ -67,7 +72,7 @@ const MobileMenu: React.FC = () => {
   const [saveToDeviceProjectName, setSaveToDeviceProjectName] = useState('');
   const [saveToDeviceBusy, setSaveToDeviceBusy] = useState(false);
   const [saveAsMode, setSaveAsMode] = useState(false); // true = Save As (new project), false = first-time save
-  
+
   // Subscribe to pitch processing status (same as desktop)
   useEffect(() => {
     const unsubscribe = onPitchStatus((status) => {
@@ -75,16 +80,22 @@ const MobileMenu: React.FC = () => {
     });
     return unsubscribe;
   }, []);
-  
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Neumorphic colors based on theme
   const neuBg = isLightMode ? '#e4ebf5' : '#1e1e1e';
   const shadowDark = isLightMode ? 'rgba(163, 177, 198, 0.6)' : 'rgba(0, 0, 0, 0.5)';
   const shadowLight = isLightMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(50, 50, 50, 0.3)';
   const textColor = isLightMode ? '#2d3748' : '#ffffff';
-  
+
   const neuRaised = `3px 3px 6px ${shadowDark}, -2px -2px 4px ${shadowLight}`;
   const neuPressed = `inset 2px 2px 4px ${shadowDark}, inset -1px -1px 2px ${shadowLight}`;
-  
+
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
@@ -101,7 +112,7 @@ const MobileMenu: React.FC = () => {
       };
     }
   }, [isExpanded]);
-  
+
   // PWA: keep prompt for "Install App" menu item only; global banner is in App (PWAInstallBanner)
   useEffect(() => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
@@ -133,63 +144,57 @@ const MobileMenu: React.FC = () => {
       showToast('Install not available - try from browser menu', 'info');
       return;
     }
-    
+
     try {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      
+
       if (outcome === 'accepted') {
         showToast('Installing app...', 'success');
       }
-      
+
       setDeferredPrompt(null);
     } catch (err) {
       showToast('Install failed', 'error');
     }
   };
-  
+
   // Zoom handlers - minimum zoom is 5 (1/5 = 20% view)
-  const MIN_ZOOM = 5; // Shows 1/5 (20%) of the audio at minimum
-  const MAX_ZOOM = 50;
-  
+  const MIN_ZOOM = MOBILE_MIN_ZOOM; // Shows 1/5 (20%) of the audio at minimum
+  const MAX_ZOOM = getMaxZoomLevel(windowWidth);
+
   const handleZoomIn = () => {
     if (!isAudioLoaded || !duration) return;
     const currentZoom = typeof zoomLevel === 'number' && !isNaN(zoomLevel) ? zoomLevel : MIN_ZOOM;
     const newZoom = Math.min(currentZoom * 1.5, MAX_ZOOM);
     animateZoom(newZoom, currentTime, { duration: 300, easing: 'easeOutCubic' });
   };
-  
+
   const handleZoomOut = () => {
     if (!isAudioLoaded || !duration) return;
     const currentZoom = typeof zoomLevel === 'number' && !isNaN(zoomLevel) ? zoomLevel : MIN_ZOOM;
     const newZoom = Math.max(currentZoom / 1.5, MIN_ZOOM);
     animateZoom(newZoom, currentTime, { duration: 300, easing: 'easeOutCubic' });
   };
-  
+
   const handleZoomReset = () => {
     if (!isAudioLoaded || !duration) return;
     animateZoom(MIN_ZOOM, undefined, { duration: 300, easing: 'easeOutCubic' });
   };
-  
-  // Pitch handlers - matching desktop behavior (±2 semitones range, 0.01 step)
-  // Uses audio engine's setPitch (same as desktop for proper audio processing)
-  const handlePitchUp = () => {
+
+  // Pitch handlers - direct semitone jumps for faster mobile access
+  const handlePitchPreset = (targetPitch: number) => {
     if (!isAudioLoaded || isPitchProcessing) return;
-    const newPitch = Math.min(Math.round((pitch + 0.01) * 100) / 100, 2);
-    setAudioPitch(newPitch); // Use audio engine's setPitch
+    const clampedPitch = Math.max(-2, Math.min(2, Math.round(targetPitch * 100) / 100));
+    setAudioPitch(clampedPitch);
   };
-  
-  const handlePitchDown = () => {
+
+  const handlePitchStep = (delta: number) => {
     if (!isAudioLoaded || isPitchProcessing) return;
-    const newPitch = Math.max(Math.round((pitch - 0.01) * 100) / 100, -2);
-    setAudioPitch(newPitch); // Use audio engine's setPitch
+    const nextPitch = Math.max(-2, Math.min(2, Math.round((pitch + delta) * 100) / 100));
+    setAudioPitch(nextPitch);
   };
-  
-  const handlePitchReset = () => {
-    if (!isAudioLoaded || isPitchProcessing) return;
-    setAudioPitch(0); // Use audio engine's setPitch
-  };
-  
+
   // Mute toggle handler
   const handleToggleMute = () => {
     if (!isAudioLoaded) return;
@@ -211,15 +216,19 @@ const MobileMenu: React.FC = () => {
   const handleVolumeStep = (step: number) => {
     handleVolumeChange(volume + step);
   };
-  
-  // Format pitch display (100% = 1 semitone) - matches GlobalControlsPanel "Original" for 0
+
   const formatPitchDisplay = (value: number): string => {
-    if (value === 0) return 'Original';
-    const pct = Math.round(value * 100);
-    const sign = pct > 0 ? '+' : '';
-    return `${sign}${pct}%`;
+    if (Math.abs(value) < 0.005) return '0 st';
+    const formatted = Math.abs(value % 1) < 0.005 ? value.toFixed(0) : value.toFixed(1);
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${formatted} st`;
   };
-  
+
+  const formatPitchPresetLabel = (value: number): string => {
+    if (value === 0) return '0';
+    return value > 0 ? `+${value}` : `${value}`;
+  };
+
   const handleNewProject = async () => {
     try {
       const store = useAppStore.getState();
@@ -232,16 +241,16 @@ const MobileMenu: React.FC = () => {
       store.setZoomLevel(getDefaultZoomLevel());
       getProjectSaver().setCurrentProjectId(null);
 
-      await resumeAudioContext();
       const file = await pickAudioFile();
       if (!file) return;
-      
+
       const validation = validateAudioFile(file);
       if (!validation.valid) {
         showToast(validation.error || 'Invalid file', 'error');
         return;
       }
-      
+
+      await resumeAudioContext();
       await loadFile(file);
       setIsExpanded(false);
       showToast('Audio loaded', 'success');
@@ -249,9 +258,15 @@ const MobileMenu: React.FC = () => {
       showToast(err instanceof Error ? err.message : 'Failed to load', 'error');
     }
   };
-  
+
   const handleLoadProject = async () => {
     try {
+      if (isIOS) {
+        setIsExpanded(false);
+        showToast('Use My Projects on iPhone and iPad to open saved work.', 'info');
+        return;
+      }
+
       await resumeAudioContext();
       const loader = getProjectLoader();
       // On phones: hint to select .tsproj (picker cannot open Downloads by default on web)
@@ -267,7 +282,7 @@ const MobileMenu: React.FC = () => {
       showToast(err instanceof Error ? err.message : 'Failed to load', 'error');
     }
   };
-  
+
   const handleOpenSaveToDeviceModal = (asSaveAs: boolean = false) => {
     const saver = getProjectSaver();
     const current = saver.getCurrentProjectName();
@@ -290,7 +305,7 @@ const MobileMenu: React.FC = () => {
       }
       const result = await saver.saveToDevice(name);
       if (result.success) {
-        showToast(saveAsMode ? 'Saved as new project' : 'Saved! Open from Menu → My Projects', 'success');
+        showToast(saveAsMode ? 'Saved as new project' : 'Saved! Open from Menu â†’ My Projects', 'success');
         setShowSaveToDeviceModal(false);
         setSaveAsMode(false);
         setIsExpanded(false);
@@ -390,7 +405,7 @@ const MobileMenu: React.FC = () => {
       return dateString;
     }
   };
-  
+
   const handleExportProject = async () => {
     try {
       const saver = getProjectSaver();
@@ -402,17 +417,40 @@ const MobileMenu: React.FC = () => {
       showToast(err instanceof Error ? err.message : 'Failed to export', 'error');
     }
   };
-  
+
   // Get safe zoom display value - show as multiplier (e.g., "5x" means 5x zoom, showing 20% of audio)
   const safeZoom = typeof zoomLevel === 'number' && !isNaN(zoomLevel) && isFinite(zoomLevel) ? zoomLevel : MIN_ZOOM;
   // Format as multiplier for clarity (matches desktop behavior)
   const zoomDisplay = safeZoom >= 10 ? `${Math.round(safeZoom)}x` : `${safeZoom.toFixed(1)}x`;
-  
-  // Compact button style - LARGER for better visibility
+
+  const isCompactMobile = windowWidth <= 420;
+  const edgeInset = isCompactMobile ? '4px' : '6px';
+  const safeMenuTop = `calc(env(safe-area-inset-top, 0px) + ${edgeInset})`;
+  const safeMenuLeft = `calc(env(safe-area-inset-left, 0px) + ${edgeInset})`;
+  const safeMenuRight = `calc(env(safe-area-inset-right, 0px) + ${edgeInset})`;
+  const menuGap = isCompactMobile ? '4px' : '8px';
+  const menuButtonSize = isCompactMobile ? '38px' : '42px';
+  const menuButtonMinSize = isCompactMobile ? '36px' : '38px';
+  const menuIconSize = isCompactMobile ? 18 : 20;
+  const hamburgerButtonSize = isCompactMobile ? '42px' : '46px';
+  const menuBarPadding = isCompactMobile ? '8px 8px' : '10px 12px';
+  const menuBarMinHeight = isCompactMobile ? '56px' : '62px';
+  const expandedPanelPadding = isCompactMobile ? '12px' : '16px';
+  const expandedPanelMaxHeight = isCompactMobile
+    ? 'calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 74px)'
+    : 'min(72vh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 78px))';
+  const sectionLabelFontSize = isCompactMobile ? '11px' : '12px';
+  const controlRowPadding = isCompactMobile ? '8px 10px' : '10px 14px';
+  const controlLabelFontSize = isCompactMobile ? '0.82rem' : '0.9rem';
+  const controlValueFontSize = isCompactMobile ? '0.76rem' : '0.84rem';
+
+  // Compact button style sized to fit narrow phone screens without clipping the menu bar.
   const btnStyle = (isActive: boolean = false, isDisabled: boolean = false) => ({
-    width: '44px',
-    height: '44px',
-    borderRadius: '10px',
+    width: menuButtonSize,
+    height: menuButtonSize,
+    minWidth: menuButtonMinSize,
+    minHeight: menuButtonMinSize,
+    borderRadius: '9px',
     border: 'none',
     background: neuBg,
     boxShadow: isActive ? neuPressed : neuRaised,
@@ -427,17 +465,17 @@ const MobileMenu: React.FC = () => {
   });
 
   return (
-    <div 
+    <div
       ref={menuRef}
       style={{
         position: 'fixed',
-        top: '6px',
-        left: '6px',
-        right: '6px',
+        top: safeMenuTop,
+        left: safeMenuLeft,
+        right: safeMenuRight,
         zIndex: 10000,
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
+        gap: menuGap,
       }}
     >
       {/* Main Menu Bar - Taller with Zoom + Save; Settings/Theme in dropdown/Settings modal */}
@@ -445,23 +483,25 @@ const MobileMenu: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: '8px',
-        padding: '10px 12px',
+        gap: menuGap,
+        padding: menuBarPadding,
         background: neuBg,
-        borderRadius: '14px',
+        borderRadius: '12px',
         boxShadow: neuRaised,
-        minHeight: '64px',
+        minHeight: menuBarMinHeight,
       }}>
         {/* Left: Hamburger */}
         <button
           onClick={() => setIsExpanded(!isExpanded)}
           style={{
             ...btnStyle(isExpanded),
-            width: '48px',
-            height: '48px',
+            width: hamburgerButtonSize,
+            height: hamburgerButtonSize,
+            minWidth: hamburgerButtonSize,
+            minHeight: hamburgerButtonSize,
           }}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={isExpanded ? KENYAN_GREEN : textColor} strokeWidth="2.5" strokeLinecap="round">
+          <svg width={menuIconSize} height={menuIconSize} viewBox="0 0 24 24" fill="none" stroke={isExpanded ? KENYAN_GREEN : textColor} strokeWidth="2.5" strokeLinecap="round">
             {isExpanded ? (
               <>
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -476,35 +516,35 @@ const MobileMenu: React.FC = () => {
             )}
           </svg>
         </button>
-        
+
         {/* Center: Undo, Redo, Zoom, Save */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1, justifyContent: 'center', minWidth: 0 }}>
+        <div style={{ display: 'flex', gap: menuGap, alignItems: 'center', flex: 1, justifyContent: 'space-between', minWidth: 0 }}>
           {/* Undo */}
           <button
-            onClick={() => canUndo() && undo()}
-            disabled={!canUndo()}
-            style={btnStyle(false, !canUndo())}
+            onClick={() => canUndo && undo()}
+            disabled={!canUndo}
+            style={btnStyle(false, !canUndo)}
             title="Undo"
           >
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+            <svg width={menuIconSize} height={menuIconSize} viewBox="0 0 16 16" fill="currentColor">
               <path fillRule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
               <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
             </svg>
           </button>
-          
+
           {/* Redo */}
           <button
-            onClick={() => canRedo() && redo()}
-            disabled={!canRedo()}
-            style={btnStyle(false, !canRedo())}
+            onClick={() => canRedo && redo()}
+            disabled={!canRedo}
+            style={btnStyle(false, !canRedo)}
             title="Redo"
           >
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+            <svg width={menuIconSize} height={menuIconSize} viewBox="0 0 16 16" fill="currentColor">
               <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
               <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966a.25.25 0 0 1 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
             </svg>
           </button>
-          
+
           {/* Zoom out */}
           <button
             onClick={handleZoomOut}
@@ -512,19 +552,19 @@ const MobileMenu: React.FC = () => {
             style={btnStyle(false, !isAudioLoaded || zoomLevel <= MIN_ZOOM)}
             title="Zoom out"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width={menuIconSize} height={menuIconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
           </button>
-          
+
           {/* Zoom display - tappable to reset */}
           <button
             onClick={handleZoomReset}
             disabled={!isAudioLoaded}
             style={{
               ...btnStyle(false, !isAudioLoaded),
-              minWidth: '52px',
-              fontSize: '13px',
+              minWidth: 'clamp(44px, 12vw, 52px)',
+              fontSize: 'clamp(11px, 3.2vw, 13px)',
               fontWeight: 700,
               color: KENYAN_GREEN,
             }}
@@ -532,7 +572,7 @@ const MobileMenu: React.FC = () => {
           >
             {zoomDisplay}
           </button>
-          
+
           {/* Zoom in */}
           <button
             onClick={handleZoomIn}
@@ -540,12 +580,12 @@ const MobileMenu: React.FC = () => {
             style={btnStyle(false, !isAudioLoaded || zoomLevel >= MAX_ZOOM)}
             title="Zoom in"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width={menuIconSize} height={menuIconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
           </button>
-          
+
           {/* Save */}
           <button
             onClick={handleSave}
@@ -553,7 +593,7 @@ const MobileMenu: React.FC = () => {
             style={btnStyle(false, !isAudioLoaded)}
             title="Save project"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width={menuIconSize} height={menuIconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
               <polyline points="17 21 17 13 7 13 7 21"/>
               <polyline points="7 3 7 8 15 8"/>
@@ -561,129 +601,178 @@ const MobileMenu: React.FC = () => {
           </button>
         </div>
       </div>
-      
+
       {/* Expanded Menu Panel */}
       {isExpanded && (
         <div style={{
           background: neuBg,
-          borderRadius: '14px',
+          borderRadius: '12px',
           boxShadow: neuRaised,
-          padding: '14px 16px',
-          maxHeight: '75vh',
+          padding: expandedPanelPadding,
+          maxHeight: expandedPanelMaxHeight,
           overflowY: 'auto',
+          overflowX: 'hidden',
           animation: 'slideDown 0.15s ease-out',
         }}>
           {/* File Section */}
           <div style={{ marginBottom: '12px' }}>
-            <div style={{ 
-              fontSize: '13px', 
-              fontWeight: 700, 
-              color: KENYAN_GREEN, 
-              padding: '6px 14px',
+            <div style={{
+              fontSize: sectionLabelFontSize,
+              fontWeight: 700,
+              color: KENYAN_GREEN,
+              padding: '4px 12px',
               textTransform: 'uppercase',
               letterSpacing: '1px',
             }}>
               File
             </div>
-            
+
             <MenuItem icon={<NewFileIcon />} label="New Project" onClick={handleNewProject} color={KENYAN_GREEN} />
-            <MenuItem icon={<FolderIcon />} label="Load Project" onClick={handleLoadProject} color={KENYAN_RED} />
+            {!isIOS && <MenuItem icon={<FolderIcon />} label="Load Project" onClick={handleLoadProject} color={KENYAN_RED} />}
             <MenuItem icon={<FolderIcon />} label="My Projects" onClick={handleOpenMyProjects} color={KENYAN_GREEN} subtitle="Saved on this device" />
             <MenuItem icon={<SaveIcon />} label="Save As" onClick={handleSaveAs} disabled={!isAudioLoaded} color={KENYAN_GREEN} subtitle="New name or download file" />
             <MenuItem icon={<ExportIcon />} label="Export/Share" onClick={handleExportProject} disabled={!isAudioLoaded} subtitle="Download .tsproj file" />
           </div>
-          
+
           {/* Settings Section */}
           <Divider isLightMode={isLightMode} />
           <div style={{ marginBottom: '4px' }}>
             <MenuItem icon={<SettingsGearIcon />} label="Settings" onClick={() => { setIsSettingsModalOpen(true); setIsExpanded(false); }} color={KENYAN_GREEN} subtitle="Theme, storage & more" />
           </div>
-          
+
           {/* Audio Controls - Pitch, Volume, Mute */}
           <Divider isLightMode={isLightMode} />
           <div style={{ marginBottom: '12px' }}>
-            <div style={{ 
-              fontSize: '13px', 
-              fontWeight: 700, 
-              color: KENYAN_GREEN, 
-              padding: '6px 14px',
+            <div style={{
+              fontSize: sectionLabelFontSize,
+              fontWeight: 700,
+              color: KENYAN_GREEN,
+              padding: '4px 12px',
               textTransform: 'uppercase',
               letterSpacing: '1px',
             }}>
               Audio
             </div>
-            
-            {/* Pitch Control - Up/Down arrows + normalization display (matches GlobalControlsPanel) */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              padding: '10px 14px',
+
+            {/* Pitch Control - responsive fine adjust row plus preset grid */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              padding: controlRowPadding,
               gap: '10px',
-              flexWrap: 'wrap',
             }}>
-              <span style={{ fontSize: '15px', color: textColor, fontWeight: 500 }}>Pitch</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                {/* Down arrow - lower pitch */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: controlLabelFontSize, color: textColor, fontWeight: 500 }}>Pitch</span>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: `${menuButtonSize} minmax(0, 1fr) ${menuButtonSize}`,
+                gap: '8px',
+                alignItems: 'center',
+                width: '100%',
+              }}>
                 <button
-                  onClick={handlePitchDown}
+                  onClick={() => handlePitchStep(-PITCH_FINE_STEP)}
                   disabled={!isAudioLoaded || isPitchProcessing || pitch <= -2}
-                  style={btnStyle(false, !isAudioLoaded || isPitchProcessing || pitch <= -2)}
-                  title="Lower pitch by 1% (0.01 semitone)"
+                  style={{
+                    ...btnStyle(false, !isAudioLoaded || isPitchProcessing || pitch <= -2),
+                    width: menuButtonSize,
+                    minWidth: menuButtonMinSize,
+                    color: KENYAN_RED,
+                    border: `1px solid ${KENYAN_RED}33`,
+                  }}
+                  title="Decrease pitch by 0.1 st"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 5v14" />
                     <path d="M19 12l-7 7-7-7" />
                   </svg>
                 </button>
-                <span style={{ 
-                  fontSize: '15px', 
-                  fontWeight: 700, 
-                  color: pitch !== 0 ? (pitch > 0 ? KENYAN_GREEN : KENYAN_RED) : textColor,
-                  minWidth: '72px',
-                  textAlign: 'center',
+                <div style={{
+                  minWidth: 0,
+                  minHeight: menuButtonSize,
+                  borderRadius: '10px',
+                  background: isLightMode
+                    ? `linear-gradient(135deg, ${pitch !== 0 ? (pitch > 0 ? KENYAN_GREEN : KENYAN_RED) : '#1a1a1a'}15, rgba(255, 255, 255, 0.65))`
+                    : `linear-gradient(135deg, ${pitch !== 0 ? (pitch > 0 ? KENYAN_GREEN : KENYAN_RED) : '#ffffff'}18, rgba(255, 255, 255, 0.05))`,
+                  border: `1px solid ${pitch !== 0 ? (pitch > 0 ? `${KENYAN_GREEN}33` : `${KENYAN_RED}33`) : (isLightMode ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)')}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 10px',
                 }}>
-                  {isPitchProcessing ? '...' : formatPitchDisplay(pitch)}
-                </span>
-                {/* Up arrow - raise pitch */}
+                  <span style={{
+                    fontSize: controlLabelFontSize,
+                    fontWeight: 700,
+                    color: pitch !== 0 ? (pitch > 0 ? KENYAN_GREEN : KENYAN_RED) : textColor,
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {isPitchProcessing ? '...' : formatPitchDisplay(pitch)}
+                  </span>
+                </div>
                 <button
-                  onClick={handlePitchUp}
+                  onClick={() => handlePitchStep(PITCH_FINE_STEP)}
                   disabled={!isAudioLoaded || isPitchProcessing || pitch >= 2}
-                  style={btnStyle(false, !isAudioLoaded || isPitchProcessing || pitch >= 2)}
-                  title="Raise pitch by 1% (0.01 semitone)"
+                  style={{
+                    ...btnStyle(false, !isAudioLoaded || isPitchProcessing || pitch >= 2),
+                    width: menuButtonSize,
+                    minWidth: menuButtonMinSize,
+                    color: KENYAN_GREEN,
+                    border: `1px solid ${KENYAN_GREEN}33`,
+                  }}
+                  title="Increase pitch by 0.1 st"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 19V5" />
                     <path d="M5 12l7-7 7 7" />
                   </svg>
                 </button>
-                <button
-                  onClick={handlePitchReset}
-                  disabled={!isAudioLoaded || isPitchProcessing || pitch === 0}
-                  style={{ 
-                    ...btnStyle(false, !isAudioLoaded || isPitchProcessing || pitch === 0),
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    width: 'auto',
-                    padding: '0 10px',
-                    minWidth: '52px',
-                  }}
-                >
-                  Reset
-                </button>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(44px, 1fr))',
+                gap: '6px',
+                width: '100%',
+              }}>
+                {PITCH_PRESETS.map((preset) => {
+                  const isActivePreset = Math.abs(pitch - preset) < 0.005;
+                  const presetColor = preset === 0 ? textColor : preset > 0 ? KENYAN_GREEN : KENYAN_RED;
+                  return (
+                    <button
+                      key={preset}
+                      onClick={() => handlePitchPreset(preset)}
+                      disabled={!isAudioLoaded || isPitchProcessing}
+                      style={{
+                        ...btnStyle(isActivePreset, !isAudioLoaded || isPitchProcessing),
+                        width: '100%',
+                        minWidth: 0,
+                        padding: 0,
+                        fontSize: controlValueFontSize,
+                        fontWeight: 700,
+                        color: isActivePreset ? '#FFFFFF' : presetColor,
+                        background: isActivePreset ? presetColor : neuBg,
+                        border: `1px solid ${isActivePreset ? presetColor : `${presetColor}33`}`,
+                      }}
+                      title={`Set pitch to ${formatPitchDisplay(preset)}`}
+                    >
+                      {formatPitchPresetLabel(preset)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            
+
             {/* Volume Control - Slider + Up/Down */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '10px 14px',
+              padding: controlRowPadding,
               gap: '10px',
               flexWrap: 'wrap',
             }}>
-              <span style={{ fontSize: '15px', color: textColor, fontWeight: 500 }}>Volume</span>
+              <span style={{ fontSize: controlLabelFontSize, color: textColor, fontWeight: 500 }}>Volume</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
                 <button
                   type="button"
@@ -707,7 +796,7 @@ const MobileMenu: React.FC = () => {
                   style={{
                     flex: 1,
                     minWidth: 80,
-                    height: '10px',
+                    height: '8px',
                     WebkitAppearance: 'none',
                     appearance: 'none',
                     background: 'transparent',
@@ -729,33 +818,33 @@ const MobileMenu: React.FC = () => {
                     <path d="M12 19V5" /><path d="M5 12l7-7 7 7" />
                   </svg>
                 </button>
-                <span style={{ fontSize: '14px', fontWeight: 600, minWidth: 36, color: textColor }}>
+                <span style={{ fontSize: controlValueFontSize, fontWeight: 600, minWidth: 36, color: textColor }}>
                   {volumePercent}%
                 </span>
               </div>
             </div>
-            
+
             {/* Mute/Unmute Toggle */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '10px 14px',
+              padding: controlRowPadding,
               gap: '10px',
             }}>
-              <span style={{ fontSize: '15px', color: textColor, fontWeight: 500 }}>Sound</span>
+              <span style={{ fontSize: controlLabelFontSize, color: textColor, fontWeight: 500 }}>Sound</span>
               <button
                 onClick={handleToggleMute}
                 disabled={!isAudioLoaded}
-                style={{ 
+                style={{
                   ...btnStyle(isMuted, !isAudioLoaded),
                   width: 'auto',
-                  padding: '0 16px',
-                  height: '44px',
+                  padding: '0 12px',
+                  height: menuButtonSize,
                   background: isMuted ? KENYAN_RED : neuBg,
                   color: isMuted ? 'white' : textColor,
-                  minWidth: '90px',
-                  gap: '8px',
+                  minWidth: '78px',
+                  gap: '6px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -763,74 +852,74 @@ const MobileMenu: React.FC = () => {
               >
                 {isMuted ? (
                   <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width={menuIconSize} height={menuIconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
                       <line x1="23" y1="9" x2="17" y2="15"/>
                       <line x1="17" y1="9" x2="23" y2="15"/>
                     </svg>
-                    <span style={{ fontSize: '14px', fontWeight: 600 }}>Muted</span>
+                    <span style={{ fontSize: controlValueFontSize, fontWeight: 600 }}>Muted</span>
                   </>
                 ) : (
                   <>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width={menuIconSize} height={menuIconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
                       <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
                     </svg>
-                    <span style={{ fontSize: '14px', fontWeight: 600 }}>On</span>
+                    <span style={{ fontSize: controlValueFontSize, fontWeight: 600 }}>On</span>
                   </>
                 )}
               </button>
             </div>
-            
+
             {/* Speed Display */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '10px 14px',
+              padding: controlRowPadding,
               gap: '10px',
             }}>
-              <span style={{ fontSize: '15px', color: textColor, fontWeight: 500 }}>Speed</span>
-              <span style={{ 
-                fontSize: '14px', 
-                fontWeight: 600, 
+              <span style={{ fontSize: controlLabelFontSize, color: textColor, fontWeight: 500 }}>Speed</span>
+              <span style={{
+                fontSize: controlValueFontSize,
+                fontWeight: 600,
                 color: playbackRate !== 1 ? KENYAN_RED : textColor,
               }}>
                 {playbackRate.toFixed(1)}x
               </span>
             </div>
           </div>
-          
+
           {/* Install App - Only show if installable and not already installed */}
           {!isAppInstalled && deferredPrompt && (
             <>
               <Divider isLightMode={isLightMode} />
-              <MenuItem 
-                icon={<InstallIcon />} 
-                label="Install App" 
+              <MenuItem
+                icon={<InstallIcon />}
+                label="Install App"
                 onClick={handleInstallApp}
                 color={KENYAN_GREEN}
                 subtitle="Add to home screen"
               />
             </>
           )}
-          
+
           {/* About */}
           <Divider isLightMode={isLightMode} />
-          <MenuItem 
-            icon={<InfoIcon />} 
-            label="About" 
+          <MenuItem
+            icon={<InfoIcon />}
+            label="About"
             onClick={() => {
-              showToast('Transcription Pro v1.0 - Made in Kenya 🇰🇪', 'success');
+              showToast('Transcription Pro v1.0 - Made in Kenya ðŸ‡°ðŸ‡ª', 'success');
               setIsExpanded(false);
-            }} 
+            }}
           />
-          
+
           {/* Close/Exit App - for PWA and mobile web */}
           <Divider isLightMode={isLightMode} />
-          <MenuItem 
-            icon={<CloseIcon />} 
-            label="Close App" 
+          <MenuItem
+            icon={<CloseIcon />}
+            label="Close App"
             onClick={() => {
               // Try to close the window/tab
               if (window.close) {
@@ -957,7 +1046,7 @@ const MobileMenu: React.FC = () => {
                       </div>
                       <div style={{ fontSize: '12px', opacity: 0.7, marginTop: '2px' }}>
                         {formatStoredDate(project.updatedAt)}
-                        {project.audioFileName && ` · ${project.audioFileName.length > 18 ? project.audioFileName.slice(0, 18) + '…' : project.audioFileName}`}
+                        {project.audioFileName && ` Â· ${project.audioFileName.length > 18 ? project.audioFileName.slice(0, 18) + 'â€¦' : project.audioFileName}`}
                       </div>
                     </div>
                   </button>
@@ -1058,7 +1147,7 @@ const MobileMenu: React.FC = () => {
                   touchAction: 'manipulation',
                 }}
               >
-                {saveToDeviceBusy ? 'Saving…' : 'Save to app storage'}
+                {saveToDeviceBusy ? 'Savingâ€¦' : 'Save to app storage'}
               </button>
               <button
                 onClick={handleDownloadTsprojFile}
@@ -1077,7 +1166,7 @@ const MobileMenu: React.FC = () => {
                   touchAction: 'manipulation',
                 }}
               >
-                {saveToDeviceBusy ? 'Preparing…' : 'Download .tsproj file'}
+                {saveToDeviceBusy ? 'Preparingâ€¦' : 'Download .tsproj file'}
               </button>
               <p style={{ fontSize: '12px', color: isLightMode ? '#666' : 'rgba(255,255,255,0.6)', margin: 0 }}>
                 Download saves the file to your device (e.g. Downloads). You can then move or share it.
@@ -1086,7 +1175,7 @@ const MobileMenu: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* PWA install is shown by App-level PWAInstallBanner (on every load, all browsers) */}
       <style>{`
         @keyframes slideDown {
@@ -1165,29 +1254,29 @@ const MenuItem: React.FC<{
     style={{
       display: 'flex',
       alignItems: 'center',
-      gap: '16px',
-      padding: '16px 16px',
+      gap: '12px',
+      padding: '12px 14px',
       background: 'transparent',
       border: 'none',
-      borderRadius: '12px',
+      borderRadius: '10px',
       width: '100%',
       color: color || 'inherit',
-      fontSize: '17px',
+      fontSize: 'clamp(0.88rem, 3.8vw, 1rem)',
       fontWeight: 500,
       cursor: disabled ? 'not-allowed' : 'pointer',
       opacity: disabled ? 0.4 : 1,
       touchAction: 'manipulation',
       textAlign: 'left',
-      minHeight: '56px',
+      minHeight: '48px',
     }}
   >
     {icon}
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
       <span>{label}</span>
       {subtitle && (
-        <span style={{ 
-          fontSize: '14px', 
-          opacity: 0.6, 
+        <span style={{
+          fontSize: 'clamp(0.72rem, 3vw, 0.82rem)',
+          opacity: 0.6,
           fontWeight: 400,
           marginTop: '2px',
         }}>
@@ -1199,16 +1288,16 @@ const MenuItem: React.FC<{
 );
 
 const Divider: React.FC<{ isLightMode: boolean }> = ({ isLightMode }) => (
-  <div style={{ 
-    height: '1px', 
+  <div style={{
+    height: '1px',
     background: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
-    margin: '4px 10px',
+    margin: '4px 8px',
   }} />
 );
 
-// Icons - Larger size (20x20) for better mobile visibility
+// Icons sized to keep the dropdown compact on narrow phone screens.
 const NewFileIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
     <polyline points="14 2 14 8 20 8"/>
     <line x1="12" y1="18" x2="12" y2="12"/>
@@ -1217,13 +1306,13 @@ const NewFileIcon = () => (
 );
 
 const FolderIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
   </svg>
 );
 
 const SaveIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
     <polyline points="17 21 17 13 7 13 7 21"/>
     <polyline points="7 3 7 8 15 8"/>
@@ -1231,7 +1320,7 @@ const SaveIcon = () => (
 );
 
 const ExportIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
     <polyline points="17 8 12 3 7 8"/>
     <line x1="12" y1="3" x2="12" y2="15"/>
@@ -1239,7 +1328,7 @@ const ExportIcon = () => (
 );
 
 const InfoIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <circle cx="12" cy="12" r="10"/>
     <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
     <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -1247,7 +1336,7 @@ const InfoIcon = () => (
 );
 
 const InstallIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
     <polyline points="7 10 12 15 17 10"/>
     <line x1="12" y1="15" x2="12" y2="3"/>
@@ -1255,7 +1344,7 @@ const InstallIcon = () => (
 );
 
 const CloseIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10"/>
     <line x1="15" y1="9" x2="9" y2="15"/>
     <line x1="9" y1="9" x2="15" y2="15"/>
@@ -1264,7 +1353,7 @@ const CloseIcon = () => (
 
 /** Gear/cog icon for Settings in dropdown */
 const SettingsGearIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
   </svg>

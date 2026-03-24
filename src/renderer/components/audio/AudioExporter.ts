@@ -21,6 +21,9 @@ async function ensureFFmpegLoaded(): Promise<FFmpeg> {
       });
       ffmpegLoaded = true;
     } catch (e) {
+      globalFFmpeg = null;
+      ffmpegLoaded = false;
+      ffmpegLoadPromise = null;
       throw e;
     }
   })();

@@ -55,12 +55,15 @@ const MarkerPanel: React.FC = () => {
   const theme = useAppStore((state) => state.theme);
   const isLightMode = theme === 'light';
   const audioDuration = useAppStore((state) => state.audio.duration || 0);
-  
+  const rawViewportStart = useAppStore((state) => state.ui.viewportStart);
+  const rawViewportEnd = useAppStore((state) => state.ui.viewportEnd);
+
   const isMobile = useIsMobile();
 
   // Mobile/tablet detection for edit popup (like speed popup)
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   const isTablet = windowWidth >= 768 && windowWidth <= 1024;
+  const isTinyMobile = isMobile && windowWidth <= 360;
   const isMobileOrTablet = isMobile || isTablet;
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -70,7 +73,7 @@ const MarkerPanel: React.FC = () => {
 
   // TASK 13: Get AudioEngine methods for applying marker settings
   const { setSpeed, seek, setLoop, disableLoop } = useAudioEngine();
-  
+
   // Use hook to apply marker speed only within marker range
   useMarkerSpeedControl();
 
@@ -115,7 +118,7 @@ const MarkerPanel: React.FC = () => {
   // Active marker at top for easy access, rest sorted by start time
   const sortedMarkers = useMemo(() => {
     const allMarkers = MarkerManager.getAllMarkers();
-    
+
     // If there's an active marker, put it first
     if (selectedMarkerId) {
       const activeMarker = allMarkers.find(m => m.id === selectedMarkerId);
@@ -124,7 +127,7 @@ const MarkerPanel: React.FC = () => {
         return [activeMarker, ...otherMarkers];
       }
     }
-    
+
     return allMarkers;
   }, [markers, selectedMarkerId]);
 
@@ -137,7 +140,7 @@ const MarkerPanel: React.FC = () => {
   const itemBg = isLightMode ? 'rgba(0, 0, 0, 0.02)' : 'rgba(255, 255, 255, 0.05)';
   const itemHoverBg = isLightMode ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.1)';
   const selectedBg = isLightMode ? 'rgba(0, 102, 68, 0.15)' : 'rgba(0, 102, 68, 0.25)';
-  
+
   // Active marker border color - amber for high visibility (not green)
   const MARKER_ACCENT = '#D97706';
 
@@ -173,13 +176,13 @@ const MarkerPanel: React.FC = () => {
     if (markerPanel) {
       markerPanel.style.transition = 'all 0.3s ease';
     }
-    
+
     // Disable looping when marker is deactivated
     disableLoop();
-    
+
     // Reset speed to normal smoothly
     setSpeed(1.0);
-    
+
     // Clear active marker after a brief delay for smooth visual transition
     setTimeout(() => {
       const store = useAppStore.getState();
@@ -187,35 +190,38 @@ const MarkerPanel: React.FC = () => {
     }, 50);
   }, [setSpeed, disableLoop]);
 
-  // Get current playback time for quick marker creation
   const currentTime = useAppStore((state) => state.audio.currentTime || 0);
+  const viewportStart = typeof rawViewportStart === 'number' && isFinite(rawViewportStart)
+    ? Math.max(0, Math.min(rawViewportStart, audioDuration || rawViewportStart))
+    : 0;
+  const viewportEnd = typeof rawViewportEnd === 'number' && isFinite(rawViewportEnd) && rawViewportEnd > viewportStart
+    ? Math.max(viewportStart, Math.min(rawViewportEnd, audioDuration || rawViewportEnd))
+    : Math.max(viewportStart, audioDuration || viewportStart);
+  const visibleTimelineDuration = viewportEnd > viewportStart
+    ? viewportEnd - viewportStart
+    : Math.max(audioDuration, 0);
+  const isCurrentTimeVisible =
+    currentTime >= viewportStart - 0.001 &&
+    currentTime <= viewportEnd + 0.001;
+  const markerCreateTime = audioDuration > 0
+    ? Math.max(
+        0,
+        Math.min(
+          isCurrentTimeVisible ? currentTime : viewportStart,
+          audioDuration
+        )
+      )
+    : 0;
+  const quickMarkerDuration = Math.min(
+    5,
+    Math.max(1.5, visibleTimelineDuration > 0 ? visibleTimelineDuration * 0.18 : 5)
+  );
+  const markerCreateTimeLabel = formatTime(markerCreateTime);
+  const markerCreateHint = isCurrentTimeVisible
+    ? `Add at ${markerCreateTimeLabel} from the visible playhead`
+    : `Add at ${markerCreateTimeLabel} from the visible timeline`;
 
-  // TASK 15: Handle Create Marker button click
-  // Creates a quick marker at current position with default 5-second duration
-  const handleCreateButtonClick = useCallback(() => {
-    if (audioDuration > 0) {
-      try {
-        const start = currentTime;
-        const end = Math.min(currentTime + 5, audioDuration);
-        if (end - start >= 0.5) {
-          MarkerManager.createQuickMarker(start, end);
-        } else {
-          const altStart = Math.max(0, currentTime - 5);
-          if (currentTime - altStart >= 0.5) {
-            MarkerManager.createQuickMarker(altStart, currentTime);
-          }
-        }
-      } catch (error) {
-      }
-    }
-  }, [audioDuration, currentTime]);
-
-  // TASK 15: Keyboard shortcut for marker creation (N key)
-  // NOTE: Global key handlers are centralized in App.tsx
-
-  // Handle editing marker
-  const handleStartEdit = useCallback((marker: Marker, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openMarkerEditor = useCallback((marker: Marker) => {
     setEditingMarkerId(marker.id);
     setEditFormData({
       name: marker.name,
@@ -230,6 +236,57 @@ const MarkerPanel: React.FC = () => {
     setEndMinStr(String(Math.floor(marker.end / 60)));
     setEndSecStr(String(Math.floor(marker.end % 60)));
   }, []);
+
+  // TASK 15: Handle Create Marker button click
+  // Creates a quick marker at current position with default 5-second duration
+  const handleCreateButtonClick = useCallback(async () => {
+    if (audioDuration > 0) {
+      try {
+        let start = markerCreateTime;
+        let end = Math.min(markerCreateTime + quickMarkerDuration, audioDuration);
+        if (end - start >= 0.5) {
+          const newMarker = MarkerManager.createQuickMarker(start, end);
+          await MarkerManager.setActiveMarker(newMarker.id, {
+            seekToMarker: false,
+            audioEngine: {
+              seek,
+              setLoop,
+              disableLoop,
+            },
+          });
+          if (isMobileOrTablet) {
+            openMarkerEditor(newMarker);
+          }
+        } else {
+          const altStart = Math.max(0, markerCreateTime - quickMarkerDuration);
+          if (markerCreateTime - altStart >= 0.5) {
+            const newMarker = MarkerManager.createQuickMarker(altStart, markerCreateTime);
+            await MarkerManager.setActiveMarker(newMarker.id, {
+              seekToMarker: false,
+              audioEngine: {
+                seek,
+                setLoop,
+                disableLoop,
+              },
+            });
+            if (isMobileOrTablet) {
+              openMarkerEditor(newMarker);
+            }
+          }
+        }
+      } catch (error) {
+      }
+    }
+  }, [audioDuration, disableLoop, isMobileOrTablet, markerCreateTime, openMarkerEditor, quickMarkerDuration, seek, setLoop]);
+
+  // TASK 15: Keyboard shortcut for marker creation (N key)
+  // NOTE: Global key handlers are centralized in App.tsx
+
+  // Handle editing marker
+  const handleStartEdit = useCallback((marker: Marker, e: React.MouseEvent) => {
+    e.stopPropagation();
+    openMarkerEditor(marker);
+  }, [openMarkerEditor]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingMarkerId(null);
@@ -285,7 +342,7 @@ const MarkerPanel: React.FC = () => {
         } else {
           disableLoop();
         }
-        
+
         // Speed is handled by useMarkerSpeedControl hook based on playback position
       }
 
@@ -305,12 +362,12 @@ const MarkerPanel: React.FC = () => {
   // Handle delete marker with confirmation
   const handleDeleteMarker = useCallback((marker: Marker, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent marker activation
-    
+
     // Show confirmation dialog
     const confirmed = window.confirm(
       `Delete marker "${marker.name}"?\n\nThis cannot be undone.`
     );
-    
+
     if (confirmed) {
       try {
         MarkerManager.deleteMarker(marker.id);
@@ -385,21 +442,21 @@ const MarkerPanel: React.FC = () => {
       <div
         style={{
           display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'stretch' : 'center',
+          flexDirection: isTinyMobile ? 'row' : isMobile ? 'column' : 'row',
+          alignItems: isTinyMobile ? 'center' : isMobile ? 'stretch' : 'center',
           justifyContent: 'space-between',
-          gap: isMobile ? '0.5rem' : 0,
-          padding: isMobile ? '0.5rem 0.6rem' : '0.5rem 0.75rem',
+          gap: isTinyMobile ? '0.3rem' : isMobile ? '0.5rem' : 0,
+          padding: isTinyMobile ? '0.35rem 0.45rem' : isMobile ? '0.5rem 0.6rem' : '0.5rem 0.75rem',
           background: isLightMode ? '#e4ebf5' : '#1a1a1a',
-          borderBottom: isLightMode 
-            ? '1px solid rgba(166, 180, 200, 0.3)' 
+          borderBottom: isLightMode
+            ? '1px solid rgba(166, 180, 200, 0.3)'
             : '1px solid rgba(255, 255, 255, 0.05)',
         }}
       >
         <div
           style={{
             color: textColor,
-            fontSize: isMobile ? '0.9rem' : '0.85rem',
+            fontSize: isTinyMobile ? '0.78rem' : isMobile ? '0.9rem' : '0.85rem',
             fontWeight: '600',
             flexShrink: 0,
           }}
@@ -408,18 +465,18 @@ const MarkerPanel: React.FC = () => {
         </div>
 
         {/* Button group: Navigation arrows (when active) + Create + Deactivate - wrap on mobile */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: isMobile ? '0.4rem' : '0.35rem',
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: isTinyMobile ? '0.25rem' : isMobile ? '0.4rem' : '0.35rem',
           flexWrap: 'wrap',
-          justifyContent: isMobile ? 'flex-end' : 'flex-start',
+          justifyContent: isTinyMobile ? 'flex-end' : isMobile ? 'flex-end' : 'flex-start',
         }}>
           {/* Marker navigation - show when markers exist (navigate even without selection) */}
           {sortedMarkers.length > 0 && (() => {
             const prevMarker = MarkerManager.getPreviousMarker();
             const nextMarker = MarkerManager.getNextMarker();
-            const btnSize = isMobile ? 40 : 34;
+            const btnSize = isTinyMobile ? 32 : isMobile ? 40 : 34;
             const navBtn = (onClick: () => void, title: string, guideText: string, tooltipId: string, icon: React.ReactNode, disabled?: boolean) => (
               <FirstTimeTooltip key={tooltipId} id={tooltipId} guideText={guideText} disabled={disabled} isLightMode={isLightMode}>
                 <button
@@ -488,8 +545,8 @@ const MarkerPanel: React.FC = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: isMobile ? '36px' : '28px',
-                  height: isMobile ? '36px' : '28px',
+                  width: isTinyMobile ? '32px' : isMobile ? '36px' : '28px',
+                  height: isTinyMobile ? '32px' : isMobile ? '36px' : '28px',
                   touchAction: 'manipulation',
                   padding: 0,
                   background: isLightMode ? '#e4ebf5' : '#1a1a1a',
@@ -514,8 +571,8 @@ const MarkerPanel: React.FC = () => {
                 title="Deactivate marker (return to normal speed)"
               >
               <svg
-                width="18"
-                height="18"
+                width={isTinyMobile ? "15" : "18"}
+                height={isTinyMobile ? "15" : "18"}
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -535,31 +592,31 @@ const MarkerPanel: React.FC = () => {
           <button
             onClick={handleCreateButtonClick}
             disabled={audioDuration <= 0}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: isMobile ? '36px' : '28px',
-            height: isMobile ? '36px' : '28px',
-            touchAction: 'manipulation',
-            padding: 0,
-            background: isLightMode ? '#e4ebf5' : '#1a1a1a',
-            color: audioDuration > 0 
-              ? '#006644'
-              : (isLightMode ? '#999999' : '#666666'),
-            border: 'none',
-            borderRadius: '50%',
-            cursor: audioDuration > 0 ? 'pointer' : 'not-allowed',
-            transition: 'all 0.2s ease',
-            opacity: audioDuration > 0 ? 1 : 0.6,
-            boxShadow: audioDuration > 0 
-              ? (isLightMode
-                  ? '3px 3px 6px rgba(166, 180, 200, 0.5), -2px -2px 4px rgba(255, 255, 255, 0.9)'
-                  : '3px 3px 6px rgba(0, 0, 0, 0.5), -2px -2px 4px rgba(255, 255, 255, 0.05)')
-              : (isLightMode
-                  ? 'inset 2px 2px 4px rgba(166, 180, 200, 0.5), inset -1px -1px 2px rgba(255, 255, 255, 0.9)'
-                  : 'inset 2px 2px 4px rgba(0, 0, 0, 0.5), inset -1px -1px 2px rgba(255, 255, 255, 0.03)'),
-          }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: isTinyMobile ? '32px' : isMobile ? '36px' : '28px',
+              height: isTinyMobile ? '32px' : isMobile ? '36px' : '28px',
+              touchAction: 'manipulation',
+              padding: 0,
+              background: isLightMode ? '#e4ebf5' : '#1a1a1a',
+              color: audioDuration > 0
+                ? '#006644'
+                : (isLightMode ? '#999999' : '#666666'),
+              border: 'none',
+              borderRadius: '50%',
+              cursor: audioDuration > 0 ? 'pointer' : 'not-allowed',
+              transition: 'all 0.2s ease',
+              opacity: audioDuration > 0 ? 1 : 0.6,
+              boxShadow: audioDuration > 0
+                ? (isLightMode
+                    ? '3px 3px 6px rgba(166, 180, 200, 0.5), -2px -2px 4px rgba(255, 255, 255, 0.9)'
+                    : '3px 3px 6px rgba(0, 0, 0, 0.5), -2px -2px 4px rgba(255, 255, 255, 0.05)')
+                : (isLightMode
+                    ? 'inset 2px 2px 4px rgba(166, 180, 200, 0.5), inset -1px -1px 2px rgba(255, 255, 255, 0.9)'
+                    : 'inset 2px 2px 4px rgba(0, 0, 0, 0.5), inset -1px -1px 2px rgba(255, 255, 255, 0.03)'),
+            }}
           onMouseEnter={(e) => {
             if (audioDuration > 0) {
               e.currentTarget.style.transform = 'scale(1.05)';
@@ -570,11 +627,11 @@ const MarkerPanel: React.FC = () => {
               e.currentTarget.style.transform = 'scale(1)';
             }
           }}
-          title={audioDuration > 0 ? 'Create new marker (N)' : 'Load audio file first'}
+          title={audioDuration > 0 ? `Create a marker at ${markerCreateTimeLabel}` : 'Load audio file first'}
         >
           <svg
-            width="14"
-            height="14"
+            width={isTinyMobile ? "12" : "14"}
+            height={isTinyMobile ? "12" : "14"}
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -594,11 +651,14 @@ const MarkerPanel: React.FC = () => {
       <div
         className="marker-list-container"
         style={{
-          flex: 1,
+          flex: '1 1 auto',
+          height: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: '0.5rem',
-          maxHeight: 'calc(100% - 60px)', // Leave room for header
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y',
+          overscrollBehaviorY: 'contain',
+          padding: isMobile ? '0.25rem 0.3rem' : '0.5rem',
           minHeight: 0,
         }}
       >
@@ -662,9 +722,9 @@ const MarkerPanel: React.FC = () => {
                 flexDirection: 'row',
                 alignItems: 'center',
                 flexWrap: isMobile ? 'wrap' : 'nowrap',
-                gap: isMobile ? '0.4rem' : '0.75rem',
-                padding: isMobile ? '0.6rem 0.65rem' : '0.75rem 1rem',
-                marginBottom: isMobile ? '0.4rem' : '0.5rem',
+                gap: isMobile ? '0.3rem' : '0.75rem',
+                padding: isMobile ? '0.45rem 0.55rem' : '0.75rem 1rem',
+                marginBottom: isMobile ? '0.2rem' : '0.5rem',
                 // Active marker highlighting - Neumorphic
                 background: 'var(--neu-bg-base)',
                 border: 'none',
@@ -752,7 +812,7 @@ const MarkerPanel: React.FC = () => {
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
-                  
+
                   {/* Row 2: Time Range - Minutes and Seconds (within loaded audio length) */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', justifyContent: 'flex-start', flexWrap: 'wrap' }}>
                     <span style={{ color: textSecondary, fontSize: '0.7rem', minWidth: '35px' }}>Time:</span>
@@ -780,7 +840,7 @@ const MarkerPanel: React.FC = () => {
                       style={{ width: '32px', padding: '0.25rem 0.2rem', background: 'var(--neu-bg-base)', border: 'none', borderRadius: '4px', color: textColor, fontSize: '0.75rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <span style={{ color: textSecondary, fontSize: '0.75rem', marginLeft: '0.2rem' }}>—</span>
+                    <span style={{ color: textSecondary, fontSize: '0.75rem', marginLeft: '0.2rem' }}>â€”</span>
                     <span style={{ color: textSecondary, fontSize: '0.65rem' }}>End</span>
                     <input
                       type="number"
@@ -806,7 +866,7 @@ const MarkerPanel: React.FC = () => {
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
-                  
+
                   {/* Row 3: Speed + Loop */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
@@ -834,7 +894,7 @@ const MarkerPanel: React.FC = () => {
                           fontSize: '0.8rem',
                           fontWeight: '600',
                         }}
-                      >−</button>
+                      >âˆ’</button>
                       <span style={{ color: textColor, fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: '600', minWidth: '40px', textAlign: 'center' }}>
                         {editFormData.speed.toFixed(1)}x
                       </span>
@@ -863,7 +923,7 @@ const MarkerPanel: React.FC = () => {
                         }}
                       >+</button>
                     </div>
-                    
+
                     <label
                       style={{
                         display: 'flex',
@@ -890,7 +950,7 @@ const MarkerPanel: React.FC = () => {
                       <span style={{ color: editFormData.loop ? '#00AA00' : textSecondary }}>Loop</span>
                     </label>
                   </div>
-                  
+
                   {/* Row 4: Save/Cancel Buttons */}
                   <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                     <button
@@ -934,23 +994,23 @@ const MarkerPanel: React.FC = () => {
                 </div>
               ) : isMobile ? (
               /* Mobile/Tablet: Stacked card layout - no per-marker arrows (use header instead) */
-              <div style={{ 
-                display: 'flex', 
+              <div style={{
+                display: 'flex',
                 flexDirection: 'column',
-                gap: '0.5rem',
+                gap: '0.3rem',
                 width: '100%',
               }}>
                 {/* Row 1: Color + Name + Edit + Delete */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0 }}>
                   <div
                     style={{
-                      width: '12px',
-                      height: '12px',
-                      borderRadius: '50%',
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '999px',
                       background: marker.color || '#FF4444',
-                      border: `1px solid ${isLightMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.3)'}`,
+                      border: `2px solid ${isLightMode ? 'rgba(255, 255, 255, 0.92)' : 'rgba(255, 255, 255, 0.16)'}`,
                       flexShrink: 0,
-                      boxShadow: isSelected ? `0 0 4px ${marker.color || '#FF4444'}60` : 'none',
+                      boxShadow: `0 0 0 3px ${isSelected ? `${marker.color || '#FF4444'}22` : 'transparent'}`,
                     }}
                   />
                   <div
@@ -1011,9 +1071,9 @@ const MarkerPanel: React.FC = () => {
                   </button>
                 </div>
                 {/* Row 2: Time range + Speed + Loop */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
                   <div style={{ color: textSecondary, fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                    {formatTime(marker.start)} — {formatTime(marker.end)}
+                    {formatTime(marker.start)} â€” {formatTime(marker.end)}
                   </div>
                   <span style={{ color: textSecondary, fontFamily: 'monospace', fontSize: '0.8rem' }}>
                     {markerSpeed.toFixed(1)}x
@@ -1039,10 +1099,10 @@ const MarkerPanel: React.FC = () => {
               </div>
               ) : (
               /* Desktop: Compact horizontal layout with per-marker arrows */
-              <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
                 fontSize: '0.75rem',
                 flex: '0 0 auto',
                 minWidth: 0,
@@ -1063,8 +1123,8 @@ const MarkerPanel: React.FC = () => {
                     height: editingMarkerId === marker.id ? (isMobile ? '14px' : '16px') : (isMobile ? '8px' : '10px'),
                     borderRadius: '50%',
                     background: editingMarkerId === marker.id && editFormData ? editFormData.color : (marker.color || '#FF4444'),
-                    border: editingMarkerId === marker.id 
-                      ? `2px solid ${isLightMode ? '#006644' : '#00AA66'}` 
+                    border: editingMarkerId === marker.id
+                      ? `2px solid ${isLightMode ? '#006644' : '#00AA66'}`
                       : `1px solid ${isLightMode ? 'rgba(0, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.3)'}`,
                     flexShrink: 0,
                     boxShadow: isSelected ? `0 0 4px ${marker.color || '#FF4444'}60` : 'none',
@@ -1073,7 +1133,7 @@ const MarkerPanel: React.FC = () => {
                   }}
                   title={editingMarkerId === marker.id ? 'Click to change color' : undefined}
                 />
-                
+
                 {/* Marker name - editable when in edit mode */}
                 {editingMarkerId === marker.id && editFormData ? (
                   <input
@@ -1139,7 +1199,7 @@ const MarkerPanel: React.FC = () => {
                       style={{ width: '28px', padding: '0.2rem 0.15rem', background: 'var(--neu-bg-base)', border: 'none', borderRadius: '3px', color: textColor, fontSize: '0.7rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
                       onClick={(e) => e.stopPropagation()}
                     />
-                    <span style={{ color: textSecondary, fontSize: '0.65rem', marginLeft: '0.1rem' }}>—</span>
+                    <span style={{ color: textSecondary, fontSize: '0.65rem', marginLeft: '0.1rem' }}>â€”</span>
                     <input
                       type="number"
                       min={0}
@@ -1167,7 +1227,7 @@ const MarkerPanel: React.FC = () => {
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: textSecondary, fontFamily: 'monospace', fontSize: '0.7rem' }}>
                     <span>{formatTime(marker.start)}</span>
-                    <span>—</span>
+                    <span>â€”</span>
                     <span>{formatTime(marker.end)}</span>
                   </div>
                 )}
@@ -1190,7 +1250,7 @@ const MarkerPanel: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: editFormData.speed <= 0.3 
+                        background: editFormData.speed <= 0.3
                           ? (isLightMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)')
                           : (isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)'),
                         border: `1px solid ${borderColor}`,
@@ -1203,21 +1263,21 @@ const MarkerPanel: React.FC = () => {
                       }}
                       title="Decrease speed by 0.1x"
                     >
-                      −
+                      âˆ’
                     </button>
-                    
+
                     {/* Speed display */}
-                    <span style={{ 
-                      color: textColor, 
-                      fontFamily: 'monospace', 
-                      fontSize: '0.75rem', 
+                    <span style={{
+                      color: textColor,
+                      fontFamily: 'monospace',
+                      fontSize: '0.75rem',
                       fontWeight: '600',
                       minWidth: '38px',
                       textAlign: 'center'
                     }}>
                       {editFormData.speed.toFixed(1)}x
                     </span>
-                    
+
                     {/* Reset to 1.0x button */}
                     <button
                       onClick={(e) => {
@@ -1245,7 +1305,7 @@ const MarkerPanel: React.FC = () => {
                     >
                       1
                     </button>
-                    
+
                     {/* Increase speed button */}
                     <button
                       onClick={(e) => {
@@ -1377,10 +1437,10 @@ const MarkerPanel: React.FC = () => {
                     </button>
                   </div>
                 ) : (
-                  <div style={{ 
-                    display: 'flex', 
-                    gap: isMobile ? '0.2rem' : '0.3rem', 
-                    marginLeft: isMobile ? '0' : 'auto', 
+                  <div style={{
+                    display: 'flex',
+                    gap: isMobile ? '0.2rem' : '0.3rem',
+                    marginLeft: isMobile ? '0' : 'auto',
                     alignItems: 'center',
                     flexShrink: 0,
                   }}>
@@ -1528,35 +1588,130 @@ const MarkerPanel: React.FC = () => {
       {isMobileOrTablet && editingMarkerId && editFormData && (() => {
         const marker = sortedMarkers.find((m) => m.id === editingMarkerId);
         if (!marker) return null;
-        const popupPadding = isMobile ? 20 : 18;
-        const popupWidth = isMobile ? Math.min(340, window.innerWidth - 32) : Math.min(320, window.innerWidth - 40);
+        const isCompactPopupMobile = isMobile && window.innerWidth <= 430;
+        const isUltraCompactPopup = isMobile && window.innerWidth <= 360;
+        const popupPadding = isCompactPopupMobile ? 14 : isMobile ? 18 : 18;
+        const popupWidth = isMobile
+          ? Math.min(window.innerWidth - (isUltraCompactPopup ? 12 : 20), 380)
+          : Math.min(320, window.innerWidth - 40);
+        const popupSectionStyle: React.CSSProperties = {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: isCompactPopupMobile ? 8 : 10,
+          padding: isCompactPopupMobile ? '10px' : isMobile ? '12px' : '10px',
+          borderRadius: isCompactPopupMobile ? 10 : 12,
+          background: isLightMode ? 'rgba(255, 255, 255, 0.56)' : 'rgba(255, 255, 255, 0.04)',
+          border: `1px solid ${borderColor}`,
+        };
+        const popupInputStyle: React.CSSProperties = {
+          width: '100%',
+          padding: isCompactPopupMobile ? '9px 8px' : '10px 8px',
+          background: 'var(--neu-bg-base)',
+          border: 'none',
+          borderRadius: 6,
+          color: textColor,
+          fontSize: isCompactPopupMobile ? '0.82rem' : '0.9rem',
+          fontFamily: 'monospace',
+          textAlign: 'center',
+          boxShadow: 'var(--neu-pressed)',
+          boxSizing: 'border-box',
+        };
+        const popupStepperButtonStyle: React.CSSProperties = {
+          width: isCompactPopupMobile ? 32 : 36,
+          height: isCompactPopupMobile ? 32 : 36,
+          padding: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)',
+          border: `1px solid ${borderColor}`,
+          borderRadius: 8,
+          fontSize: isCompactPopupMobile ? '0.92rem' : '1rem',
+          fontWeight: 700,
+        };
+        const popupActionButtonStyle: React.CSSProperties = {
+          padding: isCompactPopupMobile ? '11px 14px' : '12px 20px',
+          width: '100%',
+          border: 'none',
+          borderRadius: isCompactPopupMobile ? 9 : 10,
+          fontSize: isCompactPopupMobile ? '0.88rem' : '0.95rem',
+          fontWeight: 600,
+          cursor: 'pointer',
+          boxShadow: 'var(--neu-pressed)',
+          touchAction: 'manipulation',
+        };
         const popupContent = (
           <div
             style={{
               padding: popupPadding,
               width: popupWidth,
-              maxWidth: 'calc(100vw - 24px)',
-              maxHeight: '85vh',
+              maxWidth: '100%',
+              maxHeight: isCompactPopupMobile ? 'calc(100dvh - 12px)' : '85vh',
               overflowY: 'auto',
+              overscrollBehavior: 'contain',
               boxSizing: 'border-box',
-              background: isLightMode ? 'rgba(228, 235, 245, 0.98)' : 'rgba(26, 26, 26, 0.98)',
+              background: isLightMode
+                ? 'linear-gradient(180deg, rgba(248, 250, 253, 0.98) 0%, rgba(228, 235, 245, 0.98) 100%)'
+                : 'linear-gradient(180deg, rgba(28, 34, 34, 0.98) 0%, rgba(18, 20, 20, 0.98) 100%)',
               backdropFilter: 'blur(20px)',
               WebkitBackdropFilter: 'blur(20px)',
               border: isLightMode ? '1px solid rgba(0, 0, 0, 0.1)' : '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: isMobile ? 16 : 14,
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+              borderRadius: isCompactPopupMobile ? 20 : isMobile ? 18 : 14,
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.28)',
               display: 'flex',
               flexDirection: 'column',
-              gap: 16,
+              gap: isCompactPopupMobile ? 12 : 16,
               animation: 'fadeInScale 0.2s ease-out',
+              paddingBottom: isCompactPopupMobile ? 'calc(env(safe-area-inset-bottom, 0px) + 14px)' : popupPadding,
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: textColor, marginBottom: 4 }}>
-              Edit Marker
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                <div style={{ fontSize: isCompactPopupMobile ? '0.94rem' : '1rem', fontWeight: 700, color: textColor }}>
+                  Adjust Marker
+                </div>
+                <div style={{ color: textSecondary, fontSize: isCompactPopupMobile ? '0.72rem' : '0.76rem', lineHeight: 1.4 }}>
+                  Fine-tune the range, playback speed, and looping before you continue.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCancelEdit();
+                }}
+                style={{
+                  width: isCompactPopupMobile ? 30 : 32,
+                  height: isCompactPopupMobile ? 30 : 32,
+                  padding: 0,
+                  borderRadius: '999px',
+                  border: `1px solid ${borderColor}`,
+                  background: isLightMode ? 'rgba(255, 255, 255, 0.78)' : 'rgba(255, 255, 255, 0.06)',
+                  color: textSecondary,
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  fontSize: isCompactPopupMobile ? '0.88rem' : '0.95rem',
+                  fontWeight: 700,
+                }}
+                title="Close"
+              >
+                x
+              </button>
             </div>
             {/* Color + Name */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={popupSectionStyle}>
+              <div style={{ color: textSecondary, fontSize: isCompactPopupMobile ? '0.72rem' : '0.76rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Label
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: isUltraCompactPopup ? 'column' : 'row',
+                  alignItems: isUltraCompactPopup ? 'stretch' : 'center',
+                  gap: isCompactPopupMobile ? 10 : 12,
+                }}
+              >
               <div
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1565,13 +1720,14 @@ const MarkerPanel: React.FC = () => {
                   setEditFormData({ ...editFormData, color: PRESET_COLORS[nextIndex] });
                 }}
                 style={{
-                  width: 28,
-                  height: 28,
+                  width: isCompactPopupMobile ? 24 : 28,
+                  height: isCompactPopupMobile ? 24 : 28,
                   borderRadius: '50%',
                   background: editFormData.color,
                   border: `2px solid ${isLightMode ? '#006644' : '#00AA66'}`,
                   flexShrink: 0,
                   cursor: 'pointer',
+                  alignSelf: isUltraCompactPopup ? 'flex-start' : 'center',
                 }}
                 title="Tap to change color"
               />
@@ -1582,72 +1738,107 @@ const MarkerPanel: React.FC = () => {
                 placeholder="Marker name"
                 style={{
                   flex: 1,
-                  padding: '12px 14px',
+                  minWidth: 0,
+                  padding: isCompactPopupMobile ? '11px 12px' : '12px 14px',
                   background: 'var(--neu-bg-base)',
                   border: `2px solid ${isLightMode ? '#006644' : '#00AA66'}`,
                   borderRadius: 8,
                   color: textColor,
-                  fontSize: '0.95rem',
+                  fontSize: isCompactPopupMobile ? '0.88rem' : '0.95rem',
                   fontWeight: 600,
                   boxShadow: 'var(--neu-pressed)',
+                  boxSizing: 'border-box',
                 }}
               />
             </div>
+            </div>
             {/* Time Range */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ color: textSecondary, fontSize: '0.8rem', fontWeight: 600 }}>Time Range</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ color: textSecondary, fontSize: '0.75rem' }}>Start</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={599}
-                  value={startMinStr}
-                  onChange={(e) => setStartMinStr(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                  onBlur={commitTimeInputs}
-                  placeholder="m"
-                  style={{ width: 44, padding: '10px 8px', background: 'var(--neu-bg-base)', border: 'none', borderRadius: 6, color: textColor, fontSize: '0.9rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
-                />
-                <span style={{ color: textSecondary, fontSize: '0.85rem' }}>:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={startSecStr}
-                  onChange={(e) => setStartSecStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                  onBlur={commitTimeInputs}
-                  placeholder="s"
-                  style={{ width: 40, padding: '10px 8px', background: 'var(--neu-bg-base)', border: 'none', borderRadius: 6, color: textColor, fontSize: '0.9rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
-                />
-                <span style={{ color: textSecondary, marginLeft: 4 }}>—</span>
-                <span style={{ color: textSecondary, fontSize: '0.75rem' }}>End</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={599}
-                  value={endMinStr}
-                  onChange={(e) => setEndMinStr(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                  onBlur={commitTimeInputs}
-                  placeholder="m"
-                  style={{ width: 44, padding: '10px 8px', background: 'var(--neu-bg-base)', border: 'none', borderRadius: 6, color: textColor, fontSize: '0.9rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
-                />
-                <span style={{ color: textSecondary, fontSize: '0.85rem' }}>:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={endSecStr}
-                  onChange={(e) => setEndSecStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                  onBlur={commitTimeInputs}
-                  placeholder="s"
-                  style={{ width: 40, padding: '10px 8px', background: 'var(--neu-bg-base)', border: 'none', borderRadius: 6, color: textColor, fontSize: '0.9rem', fontFamily: 'monospace', textAlign: 'center', boxShadow: 'var(--neu-pressed)' }}
-                />
+            <div style={popupSectionStyle}>
+              <span style={{ color: textSecondary, fontSize: isCompactPopupMobile ? '0.76rem' : '0.8rem', fontWeight: 600 }}>Time Range</span>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: isUltraCompactPopup ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                  gap: isCompactPopupMobile ? 8 : 10,
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ color: textSecondary, fontSize: isCompactPopupMobile ? '0.7rem' : '0.75rem' }}>Start</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', gap: 6, alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={599}
+                      value={startMinStr}
+                      onChange={(e) => setStartMinStr(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                      onBlur={commitTimeInputs}
+                      placeholder="m"
+                      style={popupInputStyle}
+                    />
+                    <span style={{ color: textSecondary, fontSize: isCompactPopupMobile ? '0.8rem' : '0.85rem' }}>:</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={startSecStr}
+                      onChange={(e) => setStartSecStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                      onBlur={commitTimeInputs}
+                      placeholder="s"
+                      style={popupInputStyle}
+                    />
+                  </div>
+                </div>
+                <span style={{ display: 'none', color: textSecondary, marginLeft: 4 }}>-</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ color: textSecondary, fontSize: isCompactPopupMobile ? '0.7rem' : '0.75rem' }}>End</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)', gap: 6, alignItems: 'center' }}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={599}
+                      value={endMinStr}
+                      onChange={(e) => setEndMinStr(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                      onBlur={commitTimeInputs}
+                      placeholder="m"
+                      style={popupInputStyle}
+                    />
+                    <span style={{ color: textSecondary, fontSize: isCompactPopupMobile ? '0.8rem' : '0.85rem' }}>:</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      value={endSecStr}
+                      onChange={(e) => setEndSecStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                      onBlur={commitTimeInputs}
+                      placeholder="s"
+                      style={popupInputStyle}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             {/* Speed + Loop */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ color: textSecondary, fontSize: '0.85rem', fontWeight: 600 }}>Speed:</span>
+            <div style={popupSectionStyle}>
+              <div style={{ color: textSecondary, fontSize: isCompactPopupMobile ? '0.76rem' : '0.8rem', fontWeight: 600 }}>Playback</div>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: isCompactPopupMobile ? 'column' : 'row',
+                  alignItems: isCompactPopupMobile ? 'stretch' : 'center',
+                  justifyContent: 'space-between',
+                  gap: isCompactPopupMobile ? 10 : 16,
+                }}
+              >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: isCompactPopupMobile ? 'space-between' : 'flex-start',
+                  gap: isCompactPopupMobile ? 8 : 10,
+                  width: isCompactPopupMobile ? '100%' : 'auto',
+                }}
+              >
+                <span style={{ color: textSecondary, fontSize: isCompactPopupMobile ? '0.8rem' : '0.85rem', fontWeight: 600 }}>Speed</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1656,22 +1847,12 @@ const MarkerPanel: React.FC = () => {
                   }}
                   disabled={editFormData.speed <= 0.3}
                   style={{
-                    width: 36,
-                    height: 36,
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)',
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: 8,
+                    ...popupStepperButtonStyle,
                     color: editFormData.speed <= 0.3 ? textSecondary : textColor,
                     cursor: editFormData.speed <= 0.3 ? 'not-allowed' : 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: 700,
                   }}
-                >−</button>
-                <span style={{ color: textColor, fontFamily: 'monospace', fontSize: '1rem', fontWeight: 700, minWidth: 48, textAlign: 'center' }}>
+                >-</button>
+                <span style={{ color: textColor, fontFamily: 'monospace', fontSize: isCompactPopupMobile ? '0.92rem' : '1rem', fontWeight: 700, minWidth: isCompactPopupMobile ? 42 : 48, textAlign: 'center' }}>
                   {editFormData.speed.toFixed(1)}x
                 </span>
                 <button
@@ -1682,31 +1863,27 @@ const MarkerPanel: React.FC = () => {
                   }}
                   disabled={editFormData.speed >= 4.0}
                   style={{
-                    width: 36,
-                    height: 36,
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)',
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: 8,
+                    ...popupStepperButtonStyle,
                     color: editFormData.speed >= 4.0 ? textSecondary : textColor,
                     cursor: editFormData.speed >= 4.0 ? 'not-allowed' : 'pointer',
-                    fontSize: '1rem',
-                    fontWeight: 700,
                   }}
                 >+</button>
               </div>
               <label
                 style={{
                   display: 'flex',
+                  flexDirection: isCompactPopupMobile ? 'row-reverse' : 'row',
                   alignItems: 'center',
+                  justifyContent: isCompactPopupMobile ? 'space-between' : 'flex-start',
                   gap: 10,
                   cursor: 'pointer',
-                  fontSize: '0.9rem',
+                  fontSize: isCompactPopupMobile ? '0.82rem' : '0.9rem',
                   color: textColor,
                   userSelect: 'none',
+                  width: isCompactPopupMobile ? '100%' : 'auto',
+                  padding: isCompactPopupMobile ? '8px 10px' : 0,
+                  borderRadius: isCompactPopupMobile ? 8 : 0,
+                  background: isCompactPopupMobile ? 'var(--neu-bg-base)' : 'transparent',
                 }}
               >
                 <input
@@ -1714,8 +1891,8 @@ const MarkerPanel: React.FC = () => {
                   checked={editFormData.loop}
                   onChange={(e) => setEditFormData({ ...editFormData, loop: e.target.checked })}
                   style={{
-                    width: 20,
-                    height: 20,
+                    width: isCompactPopupMobile ? 18 : 20,
+                    height: isCompactPopupMobile ? 18 : 20,
                     cursor: 'pointer',
                     accentColor: isLightMode ? '#006644' : '#00AA66',
                   }}
@@ -1723,24 +1900,25 @@ const MarkerPanel: React.FC = () => {
                 <span style={{ color: editFormData.loop ? '#00AA00' : textSecondary, fontWeight: 600 }}>Loop</span>
               </label>
             </div>
+            </div>
             {/* Save / Cancel */}
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isCompactPopupMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                gap: isCompactPopupMobile ? 8 : 12,
+                marginTop: 4,
+              }}
+            >
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleCancelEdit();
                 }}
                 style={{
-                  padding: '12px 20px',
+                  ...popupActionButtonStyle,
                   background: 'var(--neu-bg-base)',
-                  border: 'none',
-                  borderRadius: 10,
                   color: textColor,
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow: 'var(--neu-pressed)',
-                  touchAction: 'manipulation',
                 }}
               >
                 Cancel
@@ -1751,16 +1929,9 @@ const MarkerPanel: React.FC = () => {
                   handleSaveEdit(marker.id);
                 }}
                 style={{
-                  padding: '12px 20px',
+                  ...popupActionButtonStyle,
                   background: isLightMode ? '#006644' : '#00AA66',
-                  border: 'none',
-                  borderRadius: 10,
                   color: '#FFFFFF',
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  boxShadow: 'var(--neu-pressed)',
-                  touchAction: 'manipulation',
                 }}
               >
                 Save
@@ -1778,11 +1949,12 @@ const MarkerPanel: React.FC = () => {
               bottom: 0,
               background: 'rgba(0,0,0,0.5)',
               backdropFilter: 'blur(2px)',
-              zIndex: 10000,
+              zIndex: 10020,
               display: 'flex',
-              alignItems: 'center',
+              alignItems: isCompactPopupMobile ? 'flex-end' : 'center',
               justifyContent: 'center',
-              padding: 16,
+              padding: isCompactPopupMobile ? 8 : 16,
+              paddingBottom: isCompactPopupMobile ? 'calc(env(safe-area-inset-bottom, 0px) + 8px)' : 16,
               boxSizing: 'border-box',
             }}
             onClick={() => handleCancelEdit()}

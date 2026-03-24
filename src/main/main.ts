@@ -278,13 +278,25 @@ const createWindow = (): void => {
       }
     }
   };
+  const sendMenuAction = (action: 'save-project' | 'save-project-as'): void => {
+    const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    if (targetWindow && !targetWindow.isDestroyed()) {
+      targetWindow.webContents.send('menu-action', { action });
+    }
+  };
+  const quitApplication = (): void => {
+    app.quit();
+  };
 
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac ? [{ role: 'appMenu' as const }] : []),
     {
       label: 'File',
       submenu: [
-        isMac ? { role: 'close' as const } : { role: 'quit' as const },
+        { label: 'Save Project', accelerator: 'CommandOrControl+S', click: () => sendMenuAction('save-project') },
+        { label: 'Save Project As...', accelerator: 'CommandOrControl+Shift+S', click: () => sendMenuAction('save-project-as') },
+        { type: 'separator' as const },
+        { label: isMac ? `Quit ${app.name}` : 'Quit', accelerator: 'CommandOrControl+Q', click: quitApplication },
       ],
     },
     {
@@ -481,6 +493,9 @@ app.whenReady().then(() => {
   // IPC handlers for window controls
   ipcMain.on('close-window', () => {
     mainWindow?.close();
+  });
+  ipcMain.on('quit-app', () => {
+    app.quit();
   });
   
   ipcMain.on('minimize-window', () => {

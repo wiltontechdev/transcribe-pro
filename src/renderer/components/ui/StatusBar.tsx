@@ -60,6 +60,7 @@ const StatusBar: React.FC = () => {
 
   // Mobile: Show only essential info
   if (isMobile) {
+    const isTinyMobile = typeof window !== 'undefined' && window.innerWidth <= 360;
     const hasUnsavedChanges = !!file && projectLastChangeAt > Math.max(lastAutoSaveAt, lastManualSaveAt);
     const statusColor = hasUnsavedChanges ? KENYAN_RED : KENYAN_GREEN;
     
@@ -70,7 +71,7 @@ const StatusBar: React.FC = () => {
           bottom: 0,
           left: 0,
           right: 0,
-          height: '24px',
+          height: isTinyMobile ? '20px' : '24px',
           background: bgColor,
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
@@ -78,9 +79,9 @@ const StatusBar: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '1rem',
+          gap: isTinyMobile ? '0.5rem' : '1rem',
           padding: '0 0.5rem',
-          fontSize: '0.65rem',
+          fontSize: isTinyMobile ? '0.58rem' : '0.65rem',
           fontFamily: HANDWRITTEN_FONT,
           zIndex: 999998,
         }}
@@ -104,7 +105,7 @@ const StatusBar: React.FC = () => {
         )}
         
         {/* Time */}
-        {isLoaded && duration > 0 && (
+        {!isTinyMobile && isLoaded && duration > 0 && (
           <span style={{ color: textColor }}>
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>

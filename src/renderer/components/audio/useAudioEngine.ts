@@ -163,10 +163,14 @@ export function useAudioEngine() {
    * Resume audio context (required after user interaction)
    */
   const resumeAudioContext = useCallback(async () => {
+    if (!engineRef.current) {
+      engineRef.current = isElectron ? getHowlerAudioEngine() : getAudioEngine();
+    }
+
     if (engineRef.current) {
       await engineRef.current.resumeAudioContext();
     }
-  }, []);
+  }, [isElectron]);
 
   /**
    * Play audio

@@ -35,6 +35,8 @@ async function ensureFFmpegLoaded(): Promise<FFmpeg | null> {
       });
       ffmpegLoaded = true;
     } catch (e) {
+      globalFFmpeg = null;
+      ffmpegLoaded = false;
       ffmpegLoadPromise = null;
     }
   })();
@@ -42,7 +44,9 @@ async function ensureFFmpegLoaded(): Promise<FFmpeg | null> {
   return globalFFmpeg;
 }
 
-if (typeof window !== 'undefined') ensureFFmpegLoaded();
+if (typeof window !== 'undefined' && isElectron) {
+  void ensureFFmpegLoaded();
+}
 
 // Event emitter for pitch processing status
 type PitchStatusCallback = (status: { isProcessing: boolean; targetPitch: number; progress: number }) => void;

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/store';
 import { useSmoothViewport } from '../../hooks/useSmoothViewport';
+import { MOBILE_MIN_ZOOM, getMaxZoomLevel } from '../../utils/defaultZoom';
 import { useAudioEngine } from '../audio/useAudioEngine';
 import { onPitchStatus } from '../audio/HowlerAudioEngine';
 
@@ -32,9 +33,9 @@ const MobileControlsPanel: React.FC = () => {
     return unsubscribe;
   }, []);
   
-  // Zoom limits - same as mobile menu (5 = 20% view, 50 = 2% view)
-  const MIN_ZOOM = 5;
-  const MAX_ZOOM = 50;
+  // Zoom limits - same as mobile menu (phones can zoom in further for tighter edits)
+  const MIN_ZOOM = MOBILE_MIN_ZOOM;
+  const MAX_ZOOM = getMaxZoomLevel(typeof window !== 'undefined' ? window.innerWidth : 1024);
   
   // Safe zoom level - same source as Waveform/MarkerTimeline (ui.zoomLevel)
   const zoomLevel = (typeof rawZoomLevel === 'number' && !isNaN(rawZoomLevel) && isFinite(rawZoomLevel))
@@ -65,7 +66,7 @@ const MobileControlsPanel: React.FC = () => {
   
   const handleZoomReset = () => {
     if (duration > 0 && isAudioLoaded) {
-      // Reset to default 20% view (zoom level 5)
+      // Reset to minimum mobile view (zoom level 5)
       animateZoom(MIN_ZOOM, undefined, { duration: 300, easing: 'easeOutCubic' });
     }
   };

@@ -7,6 +7,16 @@
  * @param accept - MIME types to accept (default: all supported audio formats)
  * @returns Promise that resolves with selected File or null if cancelled
  */
+function applyHiddenFileInputStyles(input: HTMLInputElement): void {
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  input.style.top = '0';
+  input.style.width = '1px';
+  input.style.height = '1px';
+  input.style.opacity = '0';
+  input.style.pointerEvents = 'none';
+}
+
 export async function pickAudioFile(
   accept: string = 'audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac'
 ): Promise<File | null> {
@@ -14,7 +24,7 @@ export async function pickAudioFile(
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = accept;
-    input.style.display = 'none';
+    applyHiddenFileInputStyles(input);
 
     const safeCleanup = () => {
       try {
@@ -84,5 +94,3 @@ export function validateAudioFile(file: File): { valid: boolean; error?: string 
 
   return { valid: true };
 }
-
-

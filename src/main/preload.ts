@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Window controls
   closeWindow: () => ipcRenderer.send('close-window'),
+  quit: () => ipcRenderer.send('quit-app'),
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
   maximizeWindow: () => ipcRenderer.send('maximize-window'),
   
@@ -119,6 +120,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_e: any, payload: { key: string }) => callback(payload);
     ipcRenderer.on('arrow-key', handler);
     return () => ipcRenderer.removeListener('arrow-key', handler);
+  },
+  onMenuAction: (callback: (action: 'save-project' | 'save-project-as') => void) => {
+    const handler = (_event: any, payload: { action: 'save-project' | 'save-project-as' }) => {
+      callback(payload.action);
+    };
+    ipcRenderer.on('menu-action', handler);
+    return () => ipcRenderer.removeListener('menu-action', handler);
   },
   setCaptureArrows: (enabled: boolean) => {
     ipcRenderer.send('set-capture-arrows', enabled);

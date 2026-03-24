@@ -4,7 +4,7 @@
 import { useAppStore } from '../../store/store';
 import { ProjectData, Marker, GlobalControls, RecentProject } from '../../types/types';
 import { pickAudioFile, validateAudioFile } from '../audio/audioFilePicker';
-import { getDefaultZoomLevel } from '../../utils/defaultZoom';
+import { PHONE_MAX_ZOOM, getDefaultZoomLevel } from '../../utils/defaultZoom';
 
 const PROJECT_VERSION = '1.0.0';
 const RECENT_PROJECTS_KEY = 'transcribe-pro-recent-projects';
@@ -13,6 +13,25 @@ const WEB_AUTOSAVE_KEY = 'transcribe-pro-web-autosave';
 // Detect Electron environment
 const isElectron = !!(window as any).electronAPI || 
                    (typeof process !== 'undefined' && (process as any).versions && (process as any).versions.electron);
+const PROJECT_FILE_ACCEPT = '.tsproj,.json,application/json,text/json,text/plain';
+
+const isIOSDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = (navigator.userAgent || '').toLowerCase();
+  const isIOSUA = /iphone|ipad|ipod/.test(userAgent);
+  const isIPadDesktopUA = /macintosh/.test(userAgent) && (navigator.maxTouchPoints || 0) > 1;
+  return isIOSUA || isIPadDesktopUA;
+};
+
+const applyHiddenFileInputStyles = (input: HTMLInputElement) => {
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  input.style.top = '0';
+  input.style.width = '1px';
+  input.style.height = '1px';
+  input.style.opacity = '0';
+  input.style.pointerEvents = 'none';
+};
 
 export interface LoadProjectResult {
   success: boolean;
@@ -44,6 +63,42 @@ export class ProjectLoader {
     } else if (type === 'error') {
       alert(`Error: ${message}`);
     }
+  }
+
+  /**
+   * Read a project file as UTF-8 text with Safari/iOS-friendly fallbacks.
+   */
+  private async readProjectFileText(file: File): Promise<string> {
+    const readWithFileReader = () =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(reader.error || new Error('Failed to read project file'));
+        reader.readAsText(file, 'utf-8');
+      });
+
+    try {
+      const text = await readWithFileReader();
+      if (text && text.trim().length > 0) {
+        return text;
+      }
+    } catch (_error) {}
+
+    if (typeof file.text === 'function') {
+      const text = await file.text();
+      if (text && text.trim().length > 0) {
+        return text;
+      }
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const decoder = new TextDecoder('utf-8');
+    const text = decoder.decode(arrayBuffer);
+    if (text && text.trim().length > 0) {
+      return text;
+    }
+
+    throw new Error('The selected file appears to be empty or unreadable');
   }
 
   /**
@@ -141,7 +196,7 @@ export class ProjectLoader {
       if (data.uiState && typeof data.uiState === 'object') {
         validatedUIState = {
           zoomLevel: typeof data.uiState.zoomLevel === 'number' && !isNaN(data.uiState.zoomLevel) && data.uiState.zoomLevel > 0
-            ? Math.max(1, Math.min(50, data.uiState.zoomLevel))
+            ? Math.max(1, Math.min(PHONE_MAX_ZOOM, data.uiState.zoomLevel))
             : getDefaultZoomLevel(),
           viewportStart: typeof data.uiState.viewportStart === 'number' && !isNaN(data.uiState.viewportStart) && data.uiState.viewportStart >= 0
             ? data.uiState.viewportStart
@@ -308,9 +363,12 @@ export class ProjectLoader {
         return new Promise((resolve) => {
           const input = document.createElement('input');
           input.type = 'file';
-          input.accept = '.tsproj,application/json,.json';
+          input.accept = isIOSDevice()
+            ? `${PROJECT_FILE_ACCEPT},application/octet-stream,*/*`
+            : PROJECT_FILE_ACCEPT;
+          input.multiple = false;
           input.title = 'Select a .tsproj project file';
-          input.style.display = 'none';
+          applyHiddenFileInputStyles(input);
 
           // Safe cleanup function that checks if element is still in DOM
           const safeCleanup = () => {
@@ -347,7 +405,7 @@ export class ProjectLoader {
 
             try {
               // Read file
-              const text = await file.text();
+              const text = await this.readProjectFileText(file);
               
               // Parse JSON
               let parsedData: any;
@@ -399,15 +457,46 @@ export class ProjectLoader {
    * Convert base64 to File object
    */
   private base64ToFile(base64Data: string, mimeType: string, fileName: string): File {
-    // Convert base64 to binary
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    const sanitizedBase64 = (base64Data || '').replace(/\s+/g, '');
+    const byteArrays: Uint8Array[] = [];
+    const base64ChunkSize = 4 * 16_384;
+
+    for (let offset = 0; offset < sanitizedBase64.length; ) {
+      let end = Math.min(offset + base64ChunkSize, sanitizedBase64.length);
+
+      if (end < sanitizedBase64.length) {
+        const remainder = (end - offset) % 4;
+        if (remainder !== 0) {
+          end -= remainder;
+        }
+      }
+
+      if (end <= offset) {
+        end = Math.min(offset + 4, sanitizedBase64.length);
+      }
+
+      const chunk = sanitizedBase64.slice(offset, end);
+      const byteCharacters = atob(chunk);
+      const bytes = new Uint8Array(byteCharacters.length);
+
+      for (let i = 0; i < byteCharacters.length; i++) {
+        bytes[i] = byteCharacters.charCodeAt(i);
+      }
+
+      byteArrays.push(bytes);
+      offset = end;
     }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: mimeType });
-    return new File([blob], fileName, { type: mimeType });
+
+    const blob = new Blob(byteArrays, { type: mimeType || 'application/octet-stream' });
+
+    try {
+      return new File([blob], fileName, { type: mimeType || 'application/octet-stream' });
+    } catch (_error) {
+      const fallback = blob as Blob & { name?: string; lastModified?: number };
+      fallback.name = fileName;
+      fallback.lastModified = Date.now();
+      return fallback as File;
+    }
   }
 
   /**
